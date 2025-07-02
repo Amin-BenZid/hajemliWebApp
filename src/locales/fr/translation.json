@@ -1,0 +1,20 @@
+{
+  "welcome": "Bienvenue dans votre salon de coiffure",
+  "location": "Emplacement",
+  "contact": "Contact",
+  "hours": "Horaires",
+  "day_off": "Jour de congé",
+  "book_now": "Prendre rendez-vous",
+  "your_appointments": "Vos rendez-vous",
+  "barber": "Coiffeur",
+  "date": "Date",
+  "status": "Statut",
+  "cancel": "Annuler",
+  "no_appointments": "Aucun rendez-vous trouvé.",
+  "loading": "Chargement des informations du salon...",
+  "remind_me": "Me le rappeler",
+  "back_home": "Retour à l'accueil",
+  "view_appointment": "Voir le rendez-vous",
+  "reservation_confirmed": "Réservation confirmée",
+  "you_booked_on": "Vous avez réservé le"
+}

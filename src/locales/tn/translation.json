@@ -1,0 +1,20 @@
+{
+  "welcome": "مرحبا بيك في صالونك",
+  "location": "المكان",
+  "contact": "التواصل",
+  "hours": "أوقات العمل",
+  "day_off": "نهار الراحة",
+  "book_now": "احجز موعد",
+  "your_appointments": "مواعيدك",
+  "barber": "الحلاق",
+  "date": "التاريخ",
+  "status": "الحالة",
+  "cancel": "إلغاء",
+  "no_appointments": "ما فماش مواعيد.",
+  "loading": "جاري تحميل معلومات الصالون...",
+  "remind_me": "ذكرني",
+  "back_home": "إرجع للصفحة الرئيسية",
+  "view_appointment": "شوف الموعد",
+  "reservation_confirmed": "تم تأكيد الحجز",
+  "you_booked_on": "حجزت في"
+}

@@ -1,0 +1,20 @@
+{
+  "welcome": "Welcome to Your Barber Shop",
+  "location": "Location",
+  "contact": "Contact",
+  "hours": "Hours",
+  "day_off": "Day Off",
+  "book_now": "Book Appointment",
+  "your_appointments": "Your Appointments",
+  "barber": "Barber",
+  "date": "Date",
+  "status": "Status",
+  "cancel": "Cancel",
+  "no_appointments": "No appointments found.",
+  "loading": "Loading shop info...",
+  "remind_me": "Remind Me",
+  "back_home": "Back to Home",
+  "view_appointment": "View Appointment",
+  "reservation_confirmed": "Reservation Confirmed",
+  "you_booked_on": "You're booked on"
+}
