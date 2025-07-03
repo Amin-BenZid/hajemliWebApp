@@ -10,20 +10,13 @@ import {
   Cell,
   ResponsiveContainer,
 } from "recharts";
-import {
-  CalendarDays,
-  DollarSign,
-  Star,
-  User,
-  Briefcase,
-  TrendingUp,
-} from "lucide-react";
+import { CalendarDays, DollarSign, Star, User, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
-import BarberBottomNav from "../components/BarberBottomNav";
+import OwnerBottomNav from "../../components/ShopOwnerBottomNav";
 
 const COLORS = ["#8884d8", "#82ca9d", "#ffc658"];
 
-export default function BarberDashboard() {
+export default function OwnerAnalyticsPage() {
   const [stats] = useState({
     income: 850,
     upcomingAppointments: 5,
@@ -68,9 +61,9 @@ export default function BarberDashboard() {
   return (
     <div className="pb-20 pt-10 min-h-screen bg-white dark:bg-zinc-900 text-black dark:text-white p-6 space-y-6">
       <h1 className="text-2xl font-bold pb-4">My Dashboard</h1>
-      <BarberBottomNav />
+      <OwnerBottomNav />
       {/* Summary Cards */}
-      <a href="/barber/appointments">
+      <a href="/owner/appointments">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <StatCard
             icon={<DollarSign />}
@@ -160,7 +153,7 @@ export default function BarberDashboard() {
         <div className="space-y-3">
           {stats.recentAppointments.map((a) => (
             <Link
-              to="/barber/appointments"
+              to="/owner/appointments"
               key={a.id}
               className="bg-white dark:bg-zinc-800 border dark:border-zinc-700 p-4 rounded-xl block hover:bg-zinc-100 dark:hover:bg-zinc-700 transition"
             >
@@ -195,17 +188,10 @@ export default function BarberDashboard() {
           <h2 className="text-lg font-semibold mb-2">Quick Actions</h2>
           <div className="grid grid-cols-2 gap-4">
             <Link
-              to="/barber-profile"
+              to="/owne/profile"
               className="bg-black dark:bg-white text-white dark:text-black rounded-xl px-4 py-3 text-center text-sm"
             >
               View Profile
-            </Link>
-            <Link
-              to="/barber-jobs"
-              className="bg-black dark:bg-white text-white dark:text-black rounded-xl px-4 py-3 text-center text-sm flex items-center justify-center gap-1"
-            >
-              <Briefcase size={14} />
-              Find Jobs
             </Link>
           </div>
         </div>

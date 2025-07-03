@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import BottomNav from "../components/BottomNav";
-import FloatingBookButton from "../components/FloatingBookButton";
+import BottomNav from "../../components/BottomNav";
+import FloatingBookButton from "../../components/FloatingBookButton";
 
 export default function Appointments() {
   const [appointments, setAppointments] = useState([]);

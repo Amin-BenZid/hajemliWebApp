@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Pencil, Phone, CalendarDays, User, Eye, EyeOff, Plus } from "lucide-react";
-import BarberBottomNav from "../components/BarberBottomNav";
+import BarberBottomNav from "../../components/BarberBottomNav";
 import * as LucideIcons from "lucide-react";
 
 export default function BarberProfilePage() {

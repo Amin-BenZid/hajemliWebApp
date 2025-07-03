@@ -1,10 +1,10 @@
 import { useParams } from "react-router-dom";
-import BarberCard from "../components/BarberCard";
-import { useEffect, useState } from "react";
+import BarberCard from "../../components/BarberCard";
+import { useEffect, useState, useRef } from "react";
 import axios from "axios";
-import BottomNav from "../components/BottomNav";
-import { Phone, Clock, CalendarDays, Star, Edit, Trash2 } from "lucide-react";
-// import FloatingBookButton from "../components/FloatingBookButton";
+import BottomNav from "../../components/BottomNav";
+import { Phone, Clock, CalendarDays, Star, Edit, Trash2, Flag } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function ShopDetails() {
   const { code } = useParams();
@@ -12,7 +12,12 @@ export default function ShopDetails() {
   const [editingReview, setEditingReview] = useState(null);
   const [editComment, setEditComment] = useState("");
   const [editStars, setEditStars] = useState(5);
+  const barbersRef = useRef(null);
   const client = JSON.parse(localStorage.getItem("client"));
+
+  const scrollToBarbers = () => {
+    barbersRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   const shop = {
     shop_id: code,
@@ -23,13 +28,18 @@ export default function ShopDetails() {
     rating: 4.8,
     work_hours: "09:00 - 18:00",
     day_off: "Sunday",
-    profilePicture: "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600",
-    coverImage: "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600",
+    profilePicture: "https://i.imgur.com/wvxPV9S.png",
+    coverImage: "https://i.imgur.com/lr7rZuM.jpg",
+    images: [
+      "https://i.imgur.com/HT6rGCo.jpg",
+      "https://i.imgur.com/0DElr0H.jpg",
+      "https://i.imgur.com/s28J0Lo.jpg",
+    ],
   };
 
   const barbers = [
-    { id: "b1", name: "Amine", image: shop.coverImage, rating: 4.9 },
-    { id: "b2", name: "Karim", image: shop.coverImage, rating: 4.7 },
+    { id: "b1", name: "Amine", image: "https://i.imgur.com/HT6rGCo.jpg", rating: 4.9 },
+    { id: "b2", name: "Karim", image: "https://i.imgur.com/s28J0Lo.jpg", rating: 4.7 },
   ];
 
   useEffect(() => {
@@ -73,13 +83,34 @@ export default function ShopDetails() {
           alt={shop.shop_name}
           className="w-full h-64 object-cover"
         />
-        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-end p-6 pb-14">
-          <div>
+        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-end justify-between p-6 pb-14">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
             <h1 className="text-3xl font-bold text-white">{shop.shop_name}</h1>
             <p className="text-gray-200 text-sm">{shop.localisation}</p>
-          </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.4 }}
+          >
+            <button
+              onClick={scrollToBarbers}
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-full shadow-lg transition-all duration-300"
+            >
+              💈 Book Now
+            </button>
+          </motion.div>
         </div>
-        <img
+
+        <motion.img
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.3 }}
           src={shop.profilePicture}
           alt="profile"
           className="w-24 h-24 object-cover rounded-full border-4 border-white absolute -bottom-12 left-6 shadow-md bg-white"
@@ -103,13 +134,48 @@ export default function ShopDetails() {
           </p>
         </div>
 
-        <h2 className="text-xl font-semibold mt-8 mb-4">Our Barbers</h2>
+        {/* Gallery */}
+        <h2 className="text-xl font-semibold mt-8 mb-4">Our Shop Gallery</h2>
+        <motion.div
+          className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            visible: {
+              transition: { staggerChildren: 0.1 },
+            },
+          }}
+        >
+          {shop.images.map((img, i) => (
+            <motion.img
+              key={i}
+              src={img}
+              alt={`Shop ${i + 1}`}
+              className="rounded-xl object-cover h-40 w-full shadow"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+            />
+          ))}
+        </motion.div>
+
+        {/* Barbers */}
+        <h2 ref={barbersRef} className="text-xl font-semibold mt-8 mb-4">
+          Our Barbers
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {barbers.map((barber) => (
-            <BarberCard key={barber.id} barber={barber} />
+            <motion.div
+              key={barber.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 * barbers.indexOf(barber) }}
+            >
+              <BarberCard barber={barber} />
+            </motion.div>
           ))}
         </div>
 
+        {/* Reviews */}
         <h2 className=" text-xl font-semibold mt-12 mb-4">Client Reviews</h2>
         <div className="pb-20 space-y-4">
           {reviews.length === 0 ? (
@@ -118,9 +184,12 @@ export default function ShopDetails() {
             reviews.map((r, i) => {
               const isMine = client?.client_id === r.user_id;
               return (
-                <div
+                <motion.div
                   key={i}
                   className="border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 bg-white dark:bg-zinc-800 relative"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <div className="flex gap-1 text-yellow-500">
@@ -146,14 +215,25 @@ export default function ShopDetails() {
                       </button>
                     </div>
                   )}
-                </div>
+                  <button
+                    title="Report Review"
+                    className="absolute bottom-2 right-2 text-xs text-gray-400 hover:text-red-500"
+                  >
+                    <Flag size={14} />
+                  </button>
+                </motion.div>
               );
             })
           )}
         </div>
 
+        {/* Edit Review Popup */}
         {editingReview && (
-          <div className="mt-6 border p-4 rounded-xl dark:bg-zinc-800 bg-white">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mt-6 border p-4 rounded-xl dark:bg-zinc-800 bg-white"
+          >
             <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
               <Edit size={18} /> Edit Your Review
             </h3>
@@ -192,7 +272,7 @@ export default function ShopDetails() {
                 Cancel
               </button>
             </div>
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

@@ -10,7 +10,7 @@ import {
   RefreshCcw,
   Info,
 } from "lucide-react";
-import BarberBottomNav from "../components/BarberBottomNav";
+import BarberBottomNav from "../../components/BarberBottomNav";
 
 export default function BarberAppointments() {
   const [appointments, setAppointments] = useState([]);

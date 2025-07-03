@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import BottomNav from "../components/BottomNav";
+import BottomNav from "../../components/BottomNav";
 import { MapPin, Phone, Clock, XCircle, CalendarDays, User } from "lucide-react";
-import FloatingBookButton from "../components/FloatingBookButton";
+import FloatingBookButton from "../../components/FloatingBookButton";
 
 export default function ClientShopPage() {
   const client = JSON.parse(localStorage.getItem("client"));

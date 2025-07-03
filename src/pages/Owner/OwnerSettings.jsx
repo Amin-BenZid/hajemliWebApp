@@ -8,9 +8,9 @@ import {
   Clock,
   CalendarDays,
 } from "lucide-react";
-import BarberBottomNav from "../components/BarberBottomNav";
+import OwnerBottomNav from "../../components/ShopOwnerBottomNav";
 
-export default function BarberSettings() {
+export default function OwnerSettings() {
   const [darkMode, setDarkMode] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [privacyPublic, setPrivacyPublic] = useState(true);
@@ -35,7 +35,7 @@ export default function BarberSettings() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-900 text-black dark:text-white p-6 pb-28 transition-colors duration-300">
-      <BarberBottomNav />
+      <OwnerBottomNav />
       <div className="max-w-xl mx-auto space-y-10">
         <h1 className="text-2xl font-bold text-center">Settings</h1>
 

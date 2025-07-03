@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import ServiceCard from "../components/ServiceCard";
+import { motion } from "framer-motion";
+import ServiceCard from "../../components/ServiceCard";
 
 export default function ChooseService() {
   const { barberId } = useParams();
@@ -59,8 +60,47 @@ export default function ChooseService() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-zinc-900 text-black dark:text-white transition-colors duration-300 p-6 pt-12">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="min-h-screen bg-white dark:bg-zinc-900 text-black dark:text-white transition-colors duration-300 p-6 pt-12"
+    >
       <div className="w-full max-w-xl mx-auto">
+        {/* Modern Stepper Progress */}
+        <div className="flex justify-between items-center mb-10 px-2">
+          {[
+            { label: "Service", step: 1 },
+            { label: "Time", step: 2 },
+            { label: "Confirm", step: 3 },
+          ].map((item, i) => (
+            <div key={i} className="flex-1 relative text-center">
+              <div className="flex flex-col items-center">
+                <div
+                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm z-10 border-2 ${
+                    item.step === 1
+                      ? "bg-green-500 text-white border-green-500"
+                      : "bg-gray-200 dark:bg-zinc-700 text-gray-600 dark:text-white border-gray-300 dark:border-zinc-600"
+                  }`}
+                >
+                  {item.step}
+                </div>
+                <span className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
+                  {item.label}
+                </span>
+              </div>
+              {i < 2 && (
+                <div
+                  className={`absolute top-4  h-0.5 w-full ${
+                    item.step === 1 ? "bg-green-500" : "bg-gray-300 dark:bg-zinc-600"
+                  }`}
+                  style={{ transform: "translateX(50%)" }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
         <h1 className="text-2xl font-bold text-center mb-6 text-zinc-800 dark:text-white">
           Choose Services
         </h1>
@@ -110,6 +150,6 @@ export default function ChooseService() {
           Continue
         </button>
       </div>
-    </div>
+    </motion.div>
   );
 }

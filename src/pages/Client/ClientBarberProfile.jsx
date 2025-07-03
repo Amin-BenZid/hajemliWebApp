@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import BottomNav from "../components/BottomNav";
-import BarberReviewSection from "../components/BarberReviewSection";
+import BottomNav from "../../components/BottomNav";
+import BarberReviewSection from "../../components/BarberReviewSection";
 import { MapPin, Phone, CalendarCheck } from "lucide-react";
-import FloatingBookButton from "../components/FloatingBookButton";
+import FloatingBookButton from "../../components/FloatingBookButton";
 
 export default function BarberProfile() {
   const { id } = useParams(); // barberId from URL

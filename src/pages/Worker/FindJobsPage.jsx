@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { MapPin, Building2, Briefcase, Send } from "lucide-react";
-import BarberBottomNav from "../components/BarberBottomNav";
+import BarberBottomNav from "../../components/BarberBottomNav";
 
 export default function FindJobsPage() {
   const [cityFilter, setCityFilter] = useState("");

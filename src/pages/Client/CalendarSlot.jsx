@@ -1,8 +1,9 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { CalendarDays, Clock4, ClipboardList } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function CalendarSlot() {
   const location = useLocation();
@@ -11,6 +12,9 @@ export default function CalendarSlot() {
 
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
+
+  const timeRef = useRef(null);
+  const confirmRef = useRef(null);
 
   const shop = {
     work_hours: "09:00 AM - 05:00 PM",
@@ -73,8 +77,67 @@ export default function CalendarSlot() {
     });
   };
 
+  const handleDateSelect = (date) => {
+    setSelectedDate(date);
+    setTimeout(() => {
+      timeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 200);
+  };
+
+  const handleTimeSelect = (time) => {
+    setSelectedTime(time);
+    setTimeout(() => {
+      confirmRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 200);
+  };
+
   return (
-    <div className="min-h-screen px-6 py-8 bg-white dark:bg-zinc-900 text-black dark:text-white transition-colors duration-300 max-w-2xl mx-auto">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="min-h-screen px-6 py-8 bg-white dark:bg-zinc-900 text-black dark:text-white transition-colors duration-300 max-w-2xl mx-auto"
+    >
+      {/* Stepper Progress */}
+      <div className="flex justify-between items-center mb-8 px-2">
+        {[
+          { label: "Service", step: 1 },
+          { label: "Time", step: 2 },
+          { label: "Confirm", step: 3 },
+        ].map((item, i) => (
+          <div key={i} className="flex-1 relative text-center">
+            <div className="flex flex-col items-center">
+              <div
+                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm z-10 border-2 ${
+                  item.step === 2
+                    ? "bg-green-500 text-white border-green-500"
+                    : item.step < 2
+                    ? "bg-green-600 text-white border-green-600"
+                    : "bg-gray-200 dark:bg-zinc-700 text-gray-600 dark:text-white border-gray-300 dark:border-zinc-600"
+                }`}
+              >
+                {item.step}
+              </div>
+              <span className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
+                {item.label}
+              </span>
+            </div>
+            {i < 2 && (
+              <div
+                className={`absolute top-4  h-0.5 w-full ${
+                  item.step < 2
+                    ? "bg-green-600"
+                    : item.step === 2
+                    ? "bg-black"
+                    : "bg-gray-300 dark:bg-zinc-600"
+                }`}
+                style={{ transform: "translateX(50%)" }}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+
       <button
         onClick={() => {
           const confirmCancel = window.confirm("Cancel this reservation?");
@@ -84,11 +147,13 @@ export default function CalendarSlot() {
       >
         Cancel
       </button>
+
       <h1 className="text-2xl font-bold text-zinc-800 dark:text-white mb-4 flex items-center gap-2">
         <CalendarDays size={20} />
         Select Date & Time
       </h1>
 
+      {/* Service Summary */}
       <div className="mb-6">
         <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
           <ClipboardList size={18} />
@@ -114,7 +179,7 @@ export default function CalendarSlot() {
           Pick a Date
         </h2>
         <Calendar
-          onChange={setSelectedDate}
+          onChange={handleDateSelect}
           value={selectedDate}
           tileDisabled={({ date }) => {
             const day = date.toLocaleDateString("en-US", { weekday: "long" });
@@ -133,7 +198,7 @@ export default function CalendarSlot() {
 
       {/* Time Slots */}
       {selectedDate && (
-        <div>
+        <div ref={timeRef}>
           <h2 className="text-lg font-semibold text-zinc-800 dark:text-white mb-2 flex items-center gap-2">
             <Clock4 size={18} />
             Pick a Time
@@ -143,7 +208,7 @@ export default function CalendarSlot() {
               <button
                 key={idx}
                 disabled={slot.disabled}
-                onClick={() => setSelectedTime(slot.time)}
+                onClick={() => handleTimeSelect(slot.time)}
                 className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors duration-200 ${
                   slot.disabled
                     ? "bg-gray-200 dark:bg-zinc-700 text-gray-400 cursor-not-allowed"
@@ -161,13 +226,15 @@ export default function CalendarSlot() {
 
       {/* Confirm Button */}
       {selectedTime && (
-        <button
-          onClick={handleConfirm}
-          className="w-full mt-6 py-3 rounded-xl font-semibold bg-black text-white hover:opacity-90 transition"
-        >
-          Confirm Booking
-        </button>
+        <div ref={confirmRef}>
+          <button
+            onClick={handleConfirm}
+            className="w-full mt-6 py-3 rounded-xl font-semibold bg-black text-white hover:opacity-90 transition"
+          >
+            Confirm Booking
+          </button>
+        </div>
       )}
-    </div>
+    </motion.div>
   );
 }

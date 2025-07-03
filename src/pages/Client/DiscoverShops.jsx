@@ -1,6 +1,7 @@
+// DiscoverShops.jsx
 import { useState } from "react";
-import ShopCard from "../components/ShopCard";
-import BottomNav from "../components/BottomNav";
+import ShopCard from "../../components/ShopCard";
+import BottomNav from "../../components/BottomNav";
 import { useNavigate } from "react-router-dom";
 import { Key, Search } from "lucide-react";
 import { motion } from "framer-motion";
@@ -10,7 +11,6 @@ export default function DiscoverShops() {
   const [area, setArea] = useState("");
   const [type, setType] = useState("");
   const [loading, setLoading] = useState(false);
-
   const navigate = useNavigate();
 
   const handleCodeSubmit = (e) => {
@@ -20,8 +20,6 @@ export default function DiscoverShops() {
 
   const handleSearch = () => {
     setLoading(true);
-
-    // simulate a fake API/filter delay
     setTimeout(() => {
       console.log("Search by:", area, type);
       setLoading(false);
@@ -75,6 +73,7 @@ export default function DiscoverShops() {
         "https://images.unsplash.com/photo-1560869713-bf165a9cfac1?w=600&auto=format&fit=crop&q=60",
     },
   ];
+
   const ShimmerCard = () => (
     <div className="animate-pulse bg-white dark:bg-zinc-800 p-4 rounded-2xl border dark:border-zinc-700 flex gap-4 items-center">
       <div className="w-16 h-16 bg-zinc-300 dark:bg-zinc-700 rounded-xl"></div>
@@ -86,33 +85,38 @@ export default function DiscoverShops() {
   );
 
   return (
-    <div className="min-h-screen bg-white dark:bg-zinc-900 text-black dark:text-white transition-colors duration-300 p-6 pt-12">
+    <motion.div
+      className="min-h-screen bg-white dark:bg-zinc-900 text-black dark:text-white transition-colors duration-300 p-6 pt-12"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.6 }}
+    >
       <BottomNav />
       <div className="w-full max-w-5xl mx-auto">
         <motion.h1
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.1, duration: 0.5 }}
           className="text-3xl font-bold text-center text-zinc-800 dark:text-white mb-8"
         >
           Hajemli
         </motion.h1>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left Side */}
+          {/* LEFT SIDE */}
           <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2, duration: 0.6 }}
+            initial={{ x: -30, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.6 }}
             className="space-y-6"
           >
             <motion.form
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
               onSubmit={handleCodeSubmit}
-              className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-6 rounded-2xl shadow-md space-y-4 transition-colors"
+              className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-6 rounded-2xl shadow-md space-y-4"
             >
-              <h2 className="text-lg font-semibold text-zinc-700 dark:text-white flex items-center gap-2">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
                 <Key size={18} /> Enter Shop Code
               </h2>
               <input
@@ -121,7 +125,6 @@ export default function DiscoverShops() {
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="e.g. X2B9F"
                 className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-700 text-black dark:text-white rounded-xl focus:ring-2 focus:ring-black dark:focus:ring-white"
-                required
               />
               <button
                 type="submit"
@@ -134,16 +137,16 @@ export default function DiscoverShops() {
             <motion.div
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
-              className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-6 rounded-2xl shadow-md space-y-4 transition-colors"
+              className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-6 rounded-2xl shadow-md space-y-4"
             >
-              <h2 className="text-lg font-semibold text-zinc-700 dark:text-white flex items-center gap-2">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
                 <Search size={18} /> Discover Shops
               </h2>
 
               <select
                 value={area}
                 onChange={(e) => setArea(e.target.value)}
-                className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-700 text-black dark:text-white rounded-xl"
+                className="w-full px-4 py-2 border rounded-xl dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-700 text-black dark:text-white"
               >
                 <option value="">Select Area</option>
                 <option value="Tunis">Tunis</option>
@@ -155,7 +158,7 @@ export default function DiscoverShops() {
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value)}
-                className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-700 text-black dark:text-white rounded-xl"
+                className="w-full px-4 py-2 border rounded-xl dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-700 text-black dark:text-white"
               >
                 <option value="">Select Type</option>
                 <option value="Barber">Barber</option>
@@ -172,15 +175,20 @@ export default function DiscoverShops() {
             </motion.div>
           </motion.div>
 
-          {/* Right Side – Recommended Shops */}
+          {/* RIGHT SIDE – SHOPS */}
           <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4, duration: 0.6 }}
+            initial={{ x: 30, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.6 }}
           >
-            <h2 className="text-lg font-semibold text-zinc-700 dark:text-white mb-4">
+            <motion.h2
+              animate={{
+                textShadow: "0 0 6px rgba(255,255,255,0.5)",
+              }}
+              className="text-lg font-semibold text-zinc-700 dark:text-white mb-4"
+            >
               Recommended Shops
-            </h2>
+            </motion.h2>
             <div className="space-y-3 pb-16">
               {loading ? (
                 <>
@@ -192,9 +200,9 @@ export default function DiscoverShops() {
                 mockShops.map((shop, idx) => (
                   <motion.div
                     key={idx}
-                    whileHover={{ scale: 1.015 }}
+                    whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    transition={{ duration: 0.2 }}
+                    className="transition-transform duration-200"
                   >
                     <ShopCard shop={shop} onView={() => navigate(`/shop/${shop.code}`)} />
                   </motion.div>
@@ -204,6 +212,6 @@ export default function DiscoverShops() {
           </motion.div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

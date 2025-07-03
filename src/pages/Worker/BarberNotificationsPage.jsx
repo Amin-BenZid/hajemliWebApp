@@ -8,7 +8,7 @@ import {
   XCircle,
   ArrowRight,
 } from "lucide-react";
-import BarberBottomNav from "../components/BarberBottomNav";
+import BarberBottomNav from "../../components/BarberBottomNav";
 
 export default function BarberNotificationsPage() {
   const [notifications, setNotifications] = useState([

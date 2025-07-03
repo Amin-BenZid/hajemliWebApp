@@ -1,6 +1,9 @@
 export default function ShopCard({ shop, onView }) {
   return (
-    <div className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-4 rounded-xl shadow-sm flex gap-4 items-center transition-colors">
+    <div
+      onClick={onView}
+      className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-4 rounded-xl shadow-sm flex gap-4 items-center transition-colors cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-700"
+    >
       <img
         src={shop.image}
         alt={shop.name}
@@ -15,12 +18,9 @@ export default function ShopCard({ shop, onView }) {
           ⭐ {shop.rating} • Code: {shop.code}
         </p>
       </div>
-      <button
-        onClick={onView}
-        className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
-      >
+      <div className="text-sm font-medium text-blue-600 dark:text-blue-400 underline">
         View
-      </button>
+      </div>
     </div>
   );
 }
