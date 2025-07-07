@@ -131,3 +131,9 @@ export async function updateAppointmentState(appointmentId, newState) {
   const response = await api.put(`/appointments/${appointmentId}/state`, { newState });
   return response.data;
 }
+
+// Register a new client
+export async function registerClient(clientData) {
+  const response = await api.post('/clients', clientData);
+  return response.data;
+}

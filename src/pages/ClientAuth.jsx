@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginAllRoles } from "../services/api";
+import { loginAllRoles, registerClient } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
 export default function ClientAuthPage() {
@@ -26,6 +26,14 @@ export default function ClientAuthPage() {
     e.preventDefault();
     setError("");
     try {
+      if (isSignUp) {
+        // Prepare birthdate in ISO format if present
+        const signupData = { ...form };
+        if (signupData.birthdate) {
+          signupData.birthdate = new Date(signupData.birthdate).toISOString();
+        }
+        await registerClient(signupData);
+      }
       const { user, token, role } = await loginAllRoles(form.mail, form.password);
       login(user, token, role);
       console.log("User after login:", user);
@@ -44,7 +52,7 @@ export default function ClientAuthPage() {
         navigate("/owner/dashboard");
       }
     } catch (err) {
-      setError("Invalid email or password.");
+      setError(isSignUp ? "Registration failed. Please check your details." : "Invalid email or password.");
     }
   };
 
