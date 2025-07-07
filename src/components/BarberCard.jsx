@@ -7,7 +7,7 @@ export default function BarberCard({ barber }) {
     <div className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-md px-5 py-4 flex items-center justify-between hover:shadow-lg transition-colors duration-300">
       {/* Clickable left section for profile */}
       <div
-        onClick={() => navigate(`/barber/${barber.id}`)}
+        onClick={() => navigate(`/barber/${barber.barber_id}`)}
         className="flex items-center gap-4 cursor-pointer"
       >
         <img
@@ -26,8 +26,9 @@ export default function BarberCard({ barber }) {
       </div>
 
       {/* Book Now button stays untouched */}
+      
       <button
-        onClick={() => navigate(`/book/${barber.id}`)}
+        onClick={() => navigate(`/book/${barber.barber_id}`)}
         className="bg-black dark:bg-white text-white dark:text-black text-sm px-5 py-2 rounded-xl hover:opacity-90 transition"
       >
         Book Now

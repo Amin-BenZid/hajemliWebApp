@@ -1,7 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useAuth } from "./context/AuthContext";
 
 // Import all pages
 import ClientAuthPage from "./pages/ClientAuth";
+import ProtectedLogin from "./pages/ProtectedLogin";
 import DiscoverShops from "./pages/Client/DiscoverShops";
 import ShopDetails from "./pages/Client/ShopDetails";
 import ChooseService from "./pages/Client/ChooseService";
@@ -30,15 +33,34 @@ import BarberDashboard from "./pages/Worker/BarberDashboard";
 import BarberShopPage from "./pages/Worker/BarberShopPage";
 import BarberNotificationsPage from "./pages/Worker/BarberNotificationsPage";
 import BarberSettings from "./pages/Worker/BarberSettings";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import ConfirmResetPassword from "./pages/ConfirmResetPassword";
 
 // Components
 import ThemeToggle from "./components/ThemeToggle";
 import NotificationBell from "./components/NotificationBell";
 
 function AppRoutes() {
-  // const user = JSON.parse(localStorage.getItem("user")); // Replace with correct key
-  const user = true;
-  const role = "client";
+  const { user, role, loading } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (
+      role === "client" &&
+      user &&
+      user.shop_id &&
+      location.pathname === "/"
+    ) {
+      navigate(`/shop/${user.shop_id}`, { replace: true });
+    }
+  }, [role, user, location, navigate]);
+
+  if (loading) {
+    // You can replace this with a spinner if you want
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
 
   return (
     <>
@@ -50,10 +72,13 @@ function AppRoutes() {
       </div>
 
       <Routes>
-        <Route path="/login" element={<ClientAuthPage />} />
+        <Route path="/login" element={<ProtectedLogin />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/confirm-reset" element={<ConfirmResetPassword />} />
 
         {!user ? (
-          <Route path="*" element={<ClientAuthPage />} />
+          <Route path="*" element={<Navigate to="/login" />} />
         ) : role === "client" ? (
           <>
             <Route path="/" element={<DiscoverShops />} />

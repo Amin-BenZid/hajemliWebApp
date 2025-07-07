@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { loginAllRoles } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 export default function ClientAuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -10,9 +13,39 @@ export default function ClientAuthPage() {
     password: "",
     birthdate: "",
   });
+  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    try {
+      const { user, token, role } = await loginAllRoles(form.mail, form.password);
+      login(user, token, role);
+      console.log("User after login:", user);
+      console.log("User shop_id:", user.shop_id);
+      // Navigate based on role
+      if (role === "client") {
+        const shopId = user.shop_id || user.shopId || user.shop || null;
+        if (shopId) {
+          navigate(`/shop/${shopId}`);
+        } else {
+          navigate("/");
+        }
+      } else if (role === "worker") {
+        navigate("/barber/dashboard");
+      } else if (role === "owner") {
+        navigate("/owner/dashboard");
+      }
+    } catch (err) {
+      setError("Invalid email or password.");
+    }
   };
 
   return (
@@ -47,7 +80,7 @@ export default function ClientAuthPage() {
         </div>
 
         {/* Form */}
-        <form className="space-y-4">
+        <form className="space-y-4" onSubmit={handleSubmit}>
           {isSignUp && (
             <>
               <div className="flex gap-2">
@@ -101,15 +134,39 @@ export default function ClientAuthPage() {
             required
           />
 
-          <input
-            name="password"
-            value={form.password}
-            onChange={handleChange}
-            type="password"
-            placeholder="Password"
-            className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-black dark:bg-zinc-700 dark:text-white dark:border-zinc-600"
-            required
-          />
+          {/* Password input with eye icon inside the input box */}
+          <div className="relative">
+            <input
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-black dark:bg-zinc-700 dark:text-white dark:border-zinc-600 pr-10"
+              required
+            />
+            <span
+              className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-xl text-gray-500 dark:text-zinc-300"
+              onClick={() => setShowPassword((v) => !v)}
+              style={{ userSelect: 'none' }}
+            >
+              {showPassword ? "🙈" : "👁️"}
+            </span>
+          </div>
+
+          {error && <div className="text-red-500 text-sm text-center">{error}</div>}
+
+          {!isSignUp && (
+            <div className="text-right mb-2">
+              <button
+                type="button"
+                className="text-sm text-black dark:text-white underline hover:opacity-80"
+                onClick={() => navigate("/forgot-password")}
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
 
           <button
             type="submit"

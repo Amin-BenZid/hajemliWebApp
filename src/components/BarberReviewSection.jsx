@@ -1,6 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 import { Star, MessageSquareText, AlertCircle, Pencil, Trash } from "lucide-react";
+import { API_BASE_URL } from "../services/api";
 
 export default function BarberReviewSection({ barberId, reviews }) {
   const client = JSON.parse(localStorage.getItem("client"));
@@ -14,7 +15,7 @@ export default function BarberReviewSection({ barberId, reviews }) {
 
   //   useEffect(() => {
   //     axios
-  //       .get(`http://localhost:3000/reviews/barber/${barberId}`)
+  //       .get(`${API_BASE_URL}/reviews/barber/${barberId}`)
   //       .then((res) => {
   //         setReviews(res.data);
   //         const alreadyReviewed = res.data.some((r) => r.user_id === client?.client_id);
@@ -28,7 +29,7 @@ export default function BarberReviewSection({ barberId, reviews }) {
     if (!client) return;
 
     try {
-      // const res = await axios.post("http://localhost:3000/reviews", {
+      // const res = await axios.post(`${API_BASE_URL}/reviews`, {
       //   barber_id: barberId,
       //   user_id: client.client_id,
       //   nb_stars: stars,
@@ -45,13 +46,13 @@ export default function BarberReviewSection({ barberId, reviews }) {
   };
 
   const handleDelete = async (id) => {
-    await axios.delete(`http://localhost:3000/reviews/${id}`);
+    await axios.delete(`${API_BASE_URL}/reviews/${id}`);
     // setReviews(reviews.filter((r) => r._id !== id));
     setHasReviewed(false);
   };
 
   const handleUpdate = async () => {
-    await axios.put(`http://localhost:3000/reviews/${editing._id}`, {
+    await axios.put(`${API_BASE_URL}/reviews/${editing._id}`, {
       nb_stars: editStars,
       comment: editComment,
     });

@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import ServiceCard from "../../components/ServiceCard";
+import { fetchBarberById, fetchServiceById } from "../../services/api";
 
 export default function ChooseService() {
   const { barberId } = useParams();
@@ -10,50 +11,28 @@ export default function ChooseService() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const allServices = [
-      {
-        id: "s1",
-        name: "Haircut",
-        time: "30 mins",
-        price: 25,
-        image:
-          "https://images.unsplash.com/photo-1620912189866-74bb4248b89d?auto=format&fit=crop&w=200&q=80",
-        bio: "Precision haircut tailored to your style.",
-      },
-      {
-        id: "s2",
-        name: "Beard Trim",
-        time: "15 mins",
-        price: 10,
-        image:
-          "https://images.unsplash.com/photo-1621607512997-3b8eaa73e3e6?auto=format&fit=crop&w=200&q=80",
-        bio: "Sharp beard lining and clean edges.",
-      },
-      {
-        id: "s3",
-        name: "Facial",
-        time: "20 mins",
-        price: 20,
-        image:
-          "https://images.unsplash.com/photo-1617034024049-769aa14d3554?auto=format&fit=crop&w=200&q=80",
-        bio: "Skin cleanse and rejuvenating treatment.",
-      },
-    ];
-
-    const barberServicesById = {
-      b1: ["s1", "s2"],
-      b2: ["s1", "s3"],
-    };
-
-    const serviceIds = barberServicesById[barberId] || [];
-    const filtered = allServices.filter((s) => serviceIds.includes(s.id));
-    setServices(filtered);
+    async function fetchBarberServices() {
+      try {
+        const barber = await fetchBarberById(barberId);
+        if (Array.isArray(barber.services) && barber.services.length > 0) {
+          const serviceDetails = await Promise.all(
+            barber.services.map((serviceId) => fetchServiceById(serviceId))
+          );
+          setServices(serviceDetails);
+        } else {
+          setServices([]);
+        }
+      } catch (err) {
+        setServices([]);
+      }
+    }
+    fetchBarberServices();
   }, [barberId]);
 
   const toggleService = (service) => {
-    const exists = selectedServices.find((s) => s.id === service.id);
+    const exists = selectedServices.find((s) => s._id === service._id);
     if (exists) {
-      setSelectedServices(selectedServices.filter((s) => s.id !== service.id));
+      setSelectedServices(selectedServices.filter((s) => s._id !== service._id));
     } else {
       setSelectedServices([...selectedServices, service]);
     }
@@ -126,9 +105,9 @@ export default function ChooseService() {
         <div className="space-y-4">
           {services.map((service) => (
             <ServiceCard
-              key={service.id}
+              key={service._id || service.service_id}
               service={service}
-              isSelected={!!selectedServices.find((s) => s.id === service.id)}
+              isSelected={!!selectedServices.find((s) => s._id === service._id)}
               onSelect={() => toggleService(service)}
             />
           ))}

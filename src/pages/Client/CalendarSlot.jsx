@@ -1,26 +1,91 @@
-import { useLocation, useNavigate } from "react-router-dom";
-import { useState, useRef } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { CalendarDays, Clock4, ClipboardList } from "lucide-react";
 import { motion } from "framer-motion";
+import { fetchBarberDaysOff, fetchBarberWorkHours, fetchBarberBookedTimes, createAppointment } from "../../services/api";
 
 export default function CalendarSlot() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { barberId } = useParams();
   const services = location.state?.services || [];
 
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
+  const [daysOff, setDaysOff] = useState([]);
+  const [loadingDaysOff, setLoadingDaysOff] = useState(true);
+  const [daysOffError, setDaysOffError] = useState(null);
+  const [workHours, setWorkHours] = useState("");
+  const [loadingWorkHours, setLoadingWorkHours] = useState(true);
+  const [workHoursError, setWorkHoursError] = useState(null);
+  const [bookedTimes, setBookedTimes] = useState([]);
+  const [loadingBookedTimes, setLoadingBookedTimes] = useState(true);
+  const [bookedTimesError, setBookedTimesError] = useState(null);
 
   const timeRef = useRef(null);
   const confirmRef = useRef(null);
 
   const shop = {
-    work_hours: "09:00 AM - 05:00 PM",
-    day_off: ["Sunday"],
+    work_hours: workHours,
+    // day_off: ["Sunday","Saturday"], // removed, now dynamic
     fullDates: ["2025-06-30"],
   };
+
+  // Fetch days off from API
+  useEffect(() => {
+    async function fetchDaysOff() {
+      setLoadingDaysOff(true);
+      setDaysOffError(null);
+      try {
+        const days = await fetchBarberDaysOff(barberId);
+        setDaysOff(days);
+      } catch (err) {
+        setDaysOffError("Failed to load days off.");
+        setDaysOff([]);
+      } finally {
+        setLoadingDaysOff(false);
+      }
+    }
+    fetchDaysOff();
+  }, [barberId]);
+
+  // Fetch work hours from API
+  useEffect(() => {
+    async function fetchWorkHours() {
+      setLoadingWorkHours(true);
+      setWorkHoursError(null);
+      try {
+        const hours = await fetchBarberWorkHours(barberId);
+        setWorkHours(hours);
+      } catch (err) {
+        setWorkHoursError("Failed to load work hours.");
+        setWorkHours("");
+      } finally {
+        setLoadingWorkHours(false);
+      }
+    }
+    fetchWorkHours();
+  }, [barberId]);
+
+  // Fetch booked times from API
+  useEffect(() => {
+    async function fetchBooked() {
+      setLoadingBookedTimes(true);
+      setBookedTimesError(null);
+      try {
+        const times = await fetchBarberBookedTimes(barberId);
+        setBookedTimes(times);
+      } catch (err) {
+        setBookedTimesError("Failed to load booked times.");
+        setBookedTimes([]);
+      } finally {
+        setLoadingBookedTimes(false);
+      }
+    }
+    fetchBooked();
+  }, [barberId]);
 
   const getServiceTotalDuration = (services) => {
     return services.reduce((sum, s) => {
@@ -49,17 +114,38 @@ export default function CalendarSlot() {
   };
 
   const generateTimeSlots = () => {
-    if (!selectedDate) return [];
+    if (!selectedDate || !shop.work_hours) return [];
     const [openTime, closeTime] = shop.work_hours.split(" - ");
     const start = parseTime(openTime);
     const end = parseTime(closeTime);
     const step = 30;
     const duration = getServiceTotalDuration(services);
-    const fakeBooked = ["10:00 AM", "01:00 PM"];
     const slots = [];
+    // Filter booked times for the selected date
+    // Use local date string for comparison
+    const selectedDateStr = selectedDate.toLocaleDateString('en-CA'); // 'YYYY-MM-DD' in local time
+    const bookedTimesForDay = bookedTimes
+      .map(dtStr => {
+        const dt = new Date(dtStr);
+        // Log raw and local time
+        console.log("Raw booked time:", dtStr, "Local:", dt.toLocaleTimeString(), "UTC:", dt.toUTCString());
+        return dt;
+      })
+      .filter(dt => dt.toLocaleDateString('en-CA') === selectedDateStr)
+      .map(dt => {
+        // Use local hours/minutes for comparison, but reduce by 1 hour (60 minutes)
+        let minutes = dt.getHours() * 60 + dt.getMinutes();
+        minutes = minutes - 60;
+        const formatted = formatTime(minutes);
+        console.log("Booked time for day (local -1h):", dt.toString(), "->", minutes, formatted);
+        return minutes;
+      });
+    console.log("Selected date (local):", selectedDateStr);
     for (let t = start; t + duration <= end; t += step) {
       const label = formatTime(t);
-      const isBooked = fakeBooked.includes(label);
+      // Block only the slot that matches a booked time exactly
+      const isBooked = bookedTimesForDay.includes(t);
+      console.log("Slot:", t, label, "isBooked:", isBooked);
       slots.push({ time: label, disabled: isBooked });
     }
     return slots;
@@ -67,14 +153,38 @@ export default function CalendarSlot() {
 
   const timeSlots = generateTimeSlots();
 
-  const handleConfirm = () => {
-    navigate("/confirmation", {
-      state: {
-        date: selectedDate?.toDateString(),
-        time: selectedTime,
-        services: services,
-      },
-    });
+  const handleConfirm = async () => {
+    const client = JSON.parse(localStorage.getItem("user"));
+    if (!client || !selectedDate || !selectedTime) return;
+    // Find shop_id from client object
+    const shop_id = client.shop_id;
+    // Compose time_and_date as ISO string
+    const [time, period] = selectedTime.split(" ");
+    let [hours, minutes] = time.split(":").map(Number);
+    if (period === "PM" && hours < 12) hours += 12;
+    if (period === "AM" && hours === 12) hours = 0;
+    const appointmentDate = new Date(selectedDate);
+    appointmentDate.setHours(hours, minutes, 0, 0);
+    // Prepare payload
+    const payload = {
+      client_id: client.client_id,
+      barber_id: barberId,
+      shop_id: shop_id,
+      service_id: services.map(s => s.service_id),
+      time_and_date: appointmentDate.toISOString(),
+    };
+    try {
+      await createAppointment(payload);
+      navigate("/confirmation", {
+        state: {
+          date: selectedDate?.toDateString(),
+          time: selectedTime,
+          services: services,
+        },
+      });
+    } catch (err) {
+      alert("Failed to book appointment. Please try again.");
+    }
   };
 
   const handleDateSelect = (date) => {
@@ -90,6 +200,18 @@ export default function CalendarSlot() {
       confirmRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 200);
   };
+
+  // Helper to check if selected date and time is in the past
+  const isPastDateTime = (() => {
+    if (!selectedDate || !selectedTime) return false;
+    const [time, period] = selectedTime.split(" ");
+    let [hours, minutes] = time.split(":").map(Number);
+    if (period === "PM" && hours < 12) hours += 12;
+    if (period === "AM" && hours === 12) hours = 0;
+    const selected = new Date(selectedDate);
+    selected.setHours(hours, minutes, 0, 0);
+    return selected < new Date();
+  })();
 
   return (
     <motion.div
@@ -138,6 +260,12 @@ export default function CalendarSlot() {
         ))}
       </div>
 
+      {loadingDaysOff ? (
+        <div className="text-center text-gray-500 py-4">Loading days off...</div>
+      ) : daysOffError ? (
+        <div className="text-center text-red-500 py-4">{daysOffError}</div>
+      ) : null}
+
       <button
         onClick={() => {
           const confirmCancel = window.confirm("Cancel this reservation?");
@@ -152,6 +280,14 @@ export default function CalendarSlot() {
         <CalendarDays size={20} />
         Select Date & Time
       </h1>
+      {/* Work Hours Display */}
+      {loadingWorkHours ? (
+        <div className="text-center text-gray-500 py-2">Loading work hours...</div>
+      ) : workHoursError ? (
+        <div className="text-center text-red-500 py-2">{workHoursError}</div>
+      ) : workHours ? (
+        <div className="text-center text-sm text-zinc-600 dark:text-zinc-300 mb-2">Working hours: {workHours}</div>
+      ) : null}
 
       {/* Service Summary */}
       <div className="mb-6">
@@ -183,7 +319,7 @@ export default function CalendarSlot() {
           value={selectedDate}
           tileDisabled={({ date }) => {
             const day = date.toLocaleDateString("en-US", { weekday: "long" });
-            return shop.day_off.includes(day);
+            return daysOff.includes(day);
           }}
           tileClassName={({ date }) => {
             const dayStr = date.toISOString().split("T")[0];
@@ -199,6 +335,11 @@ export default function CalendarSlot() {
       {/* Time Slots */}
       {selectedDate && (
         <div ref={timeRef}>
+          {loadingBookedTimes ? (
+            <div className="text-center text-gray-500 py-2">Loading booked times...</div>
+          ) : bookedTimesError ? (
+            <div className="text-center text-red-500 py-2">{bookedTimesError}</div>
+          ) : null}
           <h2 className="text-lg font-semibold text-zinc-800 dark:text-white mb-2 flex items-center gap-2">
             <Clock4 size={18} />
             Pick a Time
@@ -227,9 +368,19 @@ export default function CalendarSlot() {
       {/* Confirm Button */}
       {selectedTime && (
         <div ref={confirmRef}>
+          {isPastDateTime && (
+            <div className="w-full mt-4 mb-2 text-center text-red-500 font-medium">
+              You cannot book an appointment in the past. Please select a future date and time.
+            </div>
+          )}
           <button
-            onClick={handleConfirm}
-            className="w-full mt-6 py-3 rounded-xl font-semibold bg-black text-white hover:opacity-90 transition"
+            onClick={isPastDateTime ? undefined : handleConfirm}
+            disabled={isPastDateTime}
+            className={`w-full mt-6 py-3 rounded-xl font-semibold transition ${
+              isPastDateTime
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-black text-white hover:opacity-90"
+            }`}
           >
             Confirm Booking
           </button>

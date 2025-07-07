@@ -9,6 +9,8 @@ import {
   CalendarDays,
 } from "lucide-react";
 import BarberBottomNav from "../../components/BarberBottomNav";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 export default function BarberSettings() {
   const [darkMode, setDarkMode] = useState(false);
@@ -29,8 +31,12 @@ export default function BarberSettings() {
     );
   };
 
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
   const handleLogout = () => {
-    alert("Logged out!");
+    logout();
+    navigate("/login");
   };
 
   return (

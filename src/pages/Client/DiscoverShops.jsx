@@ -1,29 +1,86 @@
 // DiscoverShops.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ShopCard from "../../components/ShopCard";
 import BottomNav from "../../components/BottomNav";
 import { useNavigate } from "react-router-dom";
 import { Key, Search } from "lucide-react";
 import { motion } from "framer-motion";
+import { fetchShops, updateClientShop } from "../../services/api";
 
 export default function DiscoverShops() {
   const [code, setCode] = useState("");
   const [area, setArea] = useState("");
   const [type, setType] = useState("");
   const [loading, setLoading] = useState(false);
+  const [shops, setShops] = useState([]);
+  const [error, setError] = useState(null);
+  const [filteredShops, setFilteredShops] = useState([]);
   const navigate = useNavigate();
+  const [currentPage, setCurrentPage] = useState(1);
+  const shopsPerPage = 4;
+  const [enterShopError, setEnterShopError] = useState("");
 
-  const handleCodeSubmit = (e) => {
+  // Calculate paginated shops
+  const indexOfLastShop = currentPage * shopsPerPage;
+  const indexOfFirstShop = indexOfLastShop - shopsPerPage;
+  const currentShops = filteredShops.slice(indexOfFirstShop, indexOfLastShop);
+  const totalPages = Math.ceil(filteredShops.length / shopsPerPage);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  useEffect(() => {
+    setLoading(true);
+    fetchShops()
+      .then((data) => {
+        setShops(data);
+        setFilteredShops(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError("Failed to load shops");
+        setLoading(false);
+      });
+  }, []);
+
+  const handleCodeSubmit = async (e) => {
     e.preventDefault();
-    console.log("Submit code:", code);
+    setEnterShopError("");
+    const client = JSON.parse(localStorage.getItem("user"));
+    if (!client?.client_id) {
+      setEnterShopError("You must be logged in as a client to enter a shop.");
+      return;
+    }
+    if (!code) {
+      setEnterShopError("Please enter a shop code.");
+      return;
+    }
+    try {
+      await updateClientShop(client.client_id, code);
+      navigate(`/shop/${code}`);
+    } catch (err) {
+      if (err.response && err.response.status === 404) {
+        setEnterShopError("There is no shop with this code.");
+      } else {
+        setEnterShopError("Failed to enter shop. Please try again.");
+      }
+    }
   };
 
   const handleSearch = () => {
     setLoading(true);
     setTimeout(() => {
-      console.log("Search by:", area, type);
+      let filtered = shops;
+      if (area) {
+        filtered = filtered.filter((shop) => shop.area === area);
+      }
+      if (type) {
+        filtered = filtered.filter((shop) => shop.type === type);
+      }
+      setFilteredShops(filtered);
       setLoading(false);
-    }, 1500);
+    }, 300);
   };
 
   const mockShops = [
@@ -132,6 +189,9 @@ export default function DiscoverShops() {
               >
                 Enter Shop
               </button>
+              {enterShopError && (
+                <div className="text-red-500 mt-2 text-sm">{enterShopError}</div>
+              )}
             </motion.form>
 
             <motion.div
@@ -196,17 +256,63 @@ export default function DiscoverShops() {
                   <ShimmerCard />
                   <ShimmerCard />
                 </>
+              ) : error ? (
+                <div className="text-red-500">{error}</div>
+              ) : filteredShops.length === 0 ? (
+                <div>No shops found.</div>
               ) : (
-                mockShops.map((shop, idx) => (
-                  <motion.div
-                    key={idx}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="transition-transform duration-200"
-                  >
-                    <ShopCard shop={shop} onView={() => navigate(`/shop/${shop.code}`)} />
-                  </motion.div>
-                ))
+                <>
+                  {currentShops.map((shop, idx) => (
+                    <motion.div
+                      key={shop._id || idx}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="transition-transform duration-200"
+                    >
+                      <ShopCard
+                        shop={{
+                          name: shop.shop_name,
+                          area: shop.area,
+                          type: shop.type,
+                          code: shop.shop_id,
+                          rating: shop.rating,
+                          image: shop.profilePicture,
+                        }}
+                        onView={async () => {
+                          const client = JSON.parse(localStorage.getItem("user"));
+                          if (!client?.client_id) {
+                            alert("You must be logged in as a client to select a shop.");
+                            return;
+                          }
+                          try {
+                            await updateClientShop(client.client_id, shop.shop_id);
+                            navigate(`/shop/${shop.shop_id}`);
+                          } catch (err) {
+                            alert("Failed to update your selected shop. Please try again.");
+                          }
+                        }}
+                      />
+                    </motion.div>
+                  ))}
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="flex justify-center mt-4 gap-2">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        <button
+                          key={page}
+                          onClick={() => handlePageChange(page)}
+                          className={`px-3 py-1 rounded-full border text-sm transition-colors ${
+                            page === currentPage
+                              ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white"
+                              : "bg-zinc-200 dark:bg-zinc-700 text-black dark:text-white border-zinc-300 dark:border-zinc-600 hover:bg-zinc-300 dark:hover:bg-zinc-600"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </motion.div>

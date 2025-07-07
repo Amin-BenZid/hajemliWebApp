@@ -3,35 +3,44 @@ import { createContext, useContext, useState, useEffect } from "react";
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [client, setClient] = useState(null);
+  const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
+  const [role, setRole] = useState(null);
+  const [loading, setLoading] = useState(true); // Add loading state
 
   // Auto-load from localStorage on app start
   useEffect(() => {
-    const savedClient = JSON.parse(localStorage.getItem("client"));
+    const savedUser = JSON.parse(localStorage.getItem("user"));
     const savedToken = localStorage.getItem("token");
-    if (savedClient && savedToken) {
-      setClient(savedClient);
+    const savedRole = localStorage.getItem("role");
+    if (savedUser && savedToken && savedRole) {
+      setUser(savedUser);
       setToken(savedToken);
+      setRole(savedRole);
     }
+    setLoading(false); // Set loading to false after check
   }, []);
 
-  const login = (clientData, authToken) => {
-    setClient(clientData);
+  const login = (userData, authToken, userRole) => {
+    setUser(userData);
     setToken(authToken);
-    localStorage.setItem("client", JSON.stringify(clientData));
+    setRole(userRole);
+    localStorage.setItem("user", JSON.stringify(userData));
     localStorage.setItem("token", authToken);
+    localStorage.setItem("role", userRole);
   };
 
   const logout = () => {
-    setClient(null);
+    setUser(null);
     setToken(null);
-    localStorage.removeItem("client");
+    setRole(null);
+    localStorage.removeItem("user");
     localStorage.removeItem("token");
+    localStorage.removeItem("role");
   };
 
   return (
-    <AuthContext.Provider value={{ client, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, role, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,41 +1,81 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Pencil, LogOut, UploadCloud } from "lucide-react";
 import BottomNav from "../../components/BottomNav";
 import FloatingBookButton from "../../components/FloatingBookButton";
+import { useAuth } from "../../context/AuthContext";
+import { fetchClientById, updateClientDetails, uploadClientProfilePicture } from "../../services/api";
 
 export default function Profile() {
   const navigate = useNavigate();
+  const { logout, user } = useAuth();
 
-  const mockClient = {
-    first_name: "Amine",
-    last_name: "BZ",
-    phone: "+21612345678",
-    birthdate: "1999-06-15",
-    mail: "amine@example.com",
-    profilePicture: "https://i.pravatar.cc/150?u=amine",
-    shop_id: "TUNX45",
-  };
-
-  const [client, setClient] = useState(mockClient);
+  const [client, setClient] = useState(null);
   const [editMode, setEditMode] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function getClient() {
+      if (user && user.client_id) {
+        try {
+          const data = await fetchClientById(user.client_id);
+          setClient(data);
+        } catch (err) {
+          // handle error, optionally set error state
+        }
+      }
+      setLoading(false);
+    }
+    getClient();
+  }, [user]);
 
   const handleChange = (e) => {
     setClient({ ...client, [e.target.name]: e.target.value });
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const imgURL = URL.createObjectURL(file);
-      setClient({ ...client, profilePicture: imgURL });
+    if (file && user && user.client_id) {
+      try {
+        const res = await uploadClientProfilePicture(user.client_id, file);
+        setClient((prev) => ({ ...prev, profilePicture: res.imageUrl }));
+      } catch (err) {
+        // handle error
+      }
+    }
+  };
+
+  const handleEditSave = async () => {
+    if (editMode && user && user.client_id) {
+      try {
+        const updateData = {
+          first_name: client.first_name,
+          last_name: client.last_name,
+          phone: client.phone,
+          birthdate: client.birthdate,
+        };
+        await updateClientDetails(user.client_id, updateData);
+        // Optionally refetch or just exit edit mode
+        setEditMode(false);
+      } catch (err) {
+        // handle error
+      }
+    } else {
+      setEditMode(true);
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("client");
-    navigate("/");
+    logout();
+    navigate("/login");
   };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+  if (!client) {
+    return <div className="min-h-screen flex items-center justify-center">No client data found.</div>;
+  }
 
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white transition-colors duration-300 px-4 pt-8 pb-32">
@@ -100,7 +140,7 @@ export default function Profile() {
               label="Birthdate"
               name="birthdate"
               type="date"
-              value={client.birthdate}
+              value={formatDate(client.birthdate)}
               onChange={handleChange}
               editable={editMode}
             />
@@ -111,7 +151,7 @@ export default function Profile() {
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row justify-between gap-4">
           <button
-            onClick={() => setEditMode(!editMode)}
+            onClick={handleEditSave}
             className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-black dark:bg-white text-white dark:text-black font-semibold hover:opacity-90 transition"
           >
             <Pencil size={16} />
@@ -131,6 +171,12 @@ export default function Profile() {
   );
 }
 
+function formatDate(dateString) {
+  if (!dateString) return '';
+  // Handles both ISO and already formatted dates
+  return dateString.split('T')[0];
+}
+
 function InputField({ label, name, value, onChange, editable, type = "text" }) {
   return (
     <div>
@@ -146,7 +192,7 @@ function InputField({ label, name, value, onChange, editable, type = "text" }) {
           className="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-700 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white transition"
         />
       ) : (
-        <p className="text-base text-zinc-800 dark:text-zinc-200">{value || "—"}</p>
+        <p className="text-base text-zinc-800 dark:text-zinc-200">{name === 'birthdate' ? formatDate(value) : value || "—"}</p>
       )}
     </div>
   );
