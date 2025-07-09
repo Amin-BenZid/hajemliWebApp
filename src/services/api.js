@@ -137,3 +137,63 @@ export async function registerClient(clientData) {
   const response = await api.post('/clients', clientData);
   return response.data;
 }
+
+// Fetch all appointments for a barber by barberId
+export async function fetchBarberAppointments(barberId) {
+  const response = await api.get(`/appointments/all/${barberId}`);
+  return response.data;
+}
+
+// Fetch shop details for a barber by barberId
+export async function fetchShopDetailsByBarberId(barberId) {
+  const response = await api.get(`/barbers/${barberId}/shop/details`);
+  return response.data;
+}
+
+// Fetch total monthly income for a barber
+export async function fetchBarberMonthlyIncome(barberId) {
+  const response = await api.get(`/appointments/barber/${barberId}/total-price`);
+  return response.data;
+}
+
+// Fetch pending appointments for a barber
+export async function fetchBarberPendingAppointments(barberId) {
+  const response = await api.get(`/appointments/pending/${barberId}`);
+  return response.data;
+}
+
+// Fetch revenue per service summary for a barber
+export async function fetchBarberServiceRevenueSummary(barberId) {
+  const response = await api.get(`/appointments/barber/${barberId}/service-revenue-summary`);
+  return response.data;
+}
+
+// Fetch average service durations for a barber
+export async function fetchBarberServiceDurations(barberId) {
+  const response = await api.get(`/barbers/${barberId}/service-durations`);
+  return response.data;
+}
+
+// Fetch weekly income for a barber
+export async function fetchBarberWeeklyIncome(barberId) {
+  const response = await api.get(`/appointments/barber/${barberId}/weekly-income`);
+  return response.data;
+}
+
+// Fetch past accepted appointments for a barber
+export async function fetchBarberPastAcceptedAppointments(barberId) {
+  const response = await api.get(`/appointments/barber/${barberId}/past-accepted`);
+  return response.data;
+}
+
+// Fetch most popular (busiest) day for a barber
+export async function fetchBarberMostPopularDay(barberId) {
+  const response = await api.get(`/appointments/barber/${barberId}/most-popular-day`);
+  return response.data;
+}
+
+// Fetch most reviewed (used) service for a barber
+export async function fetchBarberMostUsedService(barberId) {
+  const response = await api.get(`/appointments/barber/${barberId}/most-used-service`);
+  return response.data;
+}

@@ -11,6 +11,8 @@ import {
   Info,
 } from "lucide-react";
 import BarberBottomNav from "../../components/BarberBottomNav";
+import { useAuth } from "../../context/AuthContext";
+import { fetchBarberAppointments, updateAppointmentState } from "../../services/api";
 
 export default function BarberAppointments() {
   const [appointments, setAppointments] = useState([]);
@@ -18,46 +20,64 @@ export default function BarberAppointments() {
   const [dateFilter, setDateFilter] = useState("");
   const [sortOrder, setSortOrder] = useState("newest");
   const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [statusUpdating, setStatusUpdating] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ open: false, id: null, newState: null });
+  const { user, role } = useAuth();
   //   const [isAvailable, setIsAvailable] = useState(true);
 
   useEffect(() => {
-    setAppointments([
-      {
-        _id: "a1",
-        client_name: "Amine BZ",
-        time_and_date: "2025-07-01T14:00:00",
-        services: ["Haircut", "Beard Trim"],
-        state: "pending",
-        phone: "+216 50 123 456",
-        notes: "Client prefers fade haircut.",
-      },
-      {
-        _id: "a2",
-        client_name: "Sarra M.",
-        time_and_date: "2025-06-25T11:30:00",
-        services: ["Shave"],
-        state: "done",
-        phone: "+216 20 456 789",
-        notes: "Requested aloe vera treatment.",
-      },
-      {
-        _id: "a3",
-        client_name: "Omar K.",
-        time_and_date: "2025-06-27T16:00:00",
-        services: ["Haircut", "Facial"],
-        state: "canceled",
-        phone: "+216 98 456 123",
-        notes: "Canceled due to emergency.",
-      },
-    ]);
-  }, []);
+    async function loadAppointments() {
+      if (!user) return;
+      setLoading(true);
+      setError(null);
+      try {
+        // Try all possible barber id fields
+        const barberId = user.barber_id || user._id || user.id;
+        const data = await fetchBarberAppointments(barberId);
+        // Map backend fields to frontend format
+        const mapped = data.map((a) => ({
+          _id: a.appointment_id || a._id,
+          client_name: a.client_name || "Unknown",
+          time_and_date: a.time_and_date,
+          services: a.services || [],
+          state: a.state,
+          phone: a.phone || "",
+          notes: a.notes || "",
+        }));
+        setAppointments(mapped);
+      } catch (err) {
+        setError("Failed to load appointments");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadAppointments();
+  }, [user]);
 
-  const updateStatus = (id, newState) => {
-    const confirmAction = window.confirm(`Mark as "${newState}"?`);
-    if (!confirmAction) return;
-    setAppointments((prev) =>
-      prev.map((a) => (a._id === id ? { ...a, state: newState } : a))
-    );
+  const handleStatusClick = (id, newState) => {
+    setConfirmModal({ open: true, id, newState });
+  };
+
+  const handleConfirm = async () => {
+    const { id, newState } = confirmModal;
+    setStatusUpdating(id + newState);
+    setConfirmModal({ open: false, id: null, newState: null });
+    try {
+      await updateAppointmentState(id, newState);
+      setAppointments((prev) =>
+        prev.map((a) => (a._id === id ? { ...a, state: newState } : a))
+      );
+    } catch (err) {
+      alert("Failed to update appointment state.");
+    } finally {
+      setStatusUpdating(null);
+    }
+  };
+
+  const handleCancel = () => {
+    setConfirmModal({ open: false, id: null, newState: null });
   };
 
   const handleClearFilters = () => {
@@ -70,7 +90,7 @@ export default function BarberAppointments() {
     switch (state) {
       case "pending":
         return "bg-yellow-100 text-yellow-700 dark:bg-yellow-800 dark:text-yellow-200";
-      case "done":
+      case "accepted":
         return "bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-200";
       case "canceled":
         return "bg-red-100 text-red-700 dark:bg-red-800 dark:text-red-200";
@@ -111,7 +131,7 @@ export default function BarberAppointments() {
         >
           <option value="all">All Statuses</option>
           <option value="pending">Pending</option>
-          <option value="done">Done</option>
+          <option value="accepted">Accepted</option>
           <option value="canceled">Canceled</option>
         </select>
 
@@ -147,77 +167,87 @@ export default function BarberAppointments() {
       )} */}
 
       {/* Appointment Cards */}
-      <div className="space-y-4 max-w-3xl mx-auto">
-        {filteredAppointments.map((a) => (
-          <div
-            key={a._id}
-            className="bg-white dark:bg-zinc-800 p-5 rounded-2xl shadow border dark:border-zinc-700 flex flex-col gap-3"
-          >
-            <div className="flex justify-between items-center">
-              <p className="flex items-center gap-2 font-semibold">
-                <User size={18} />
-                {a.client_name}
-              </p>
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                  a.state
-                )}`}
-              >
-                {a.state}
-              </span>
-            </div>
-
-            <p className="flex items-center gap-2 text-sm">
-              <CalendarDays size={16} />
-              {new Date(a.time_and_date).toLocaleDateString()} – <Clock size={16} />
-              {new Date(a.time_and_date).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
-
-            <div className="flex items-center gap-2 text-sm flex-wrap">
-              <Scissors size={16} />
-              {a.services.map((s, idx) => (
+      {loading ? (
+        <div className="text-center py-10">Loading appointments...</div>
+      ) : error ? (
+        <div className="text-center text-red-500 py-10">{error}</div>
+      ) : filteredAppointments.length === 0 ? (
+        <div className="text-center py-10">No appointments found.</div>
+      ) : (
+        <div className="space-y-4 max-w-3xl mx-auto">
+          {filteredAppointments.map((a) => (
+            <div
+              key={a._id}
+              className="bg-white dark:bg-zinc-800 p-5 rounded-2xl shadow border dark:border-zinc-700 flex flex-col gap-3"
+            >
+              <div className="flex justify-between items-center">
+                <p className="flex items-center gap-2 font-semibold">
+                  <User size={18} />
+                  {a.client_name}
+                </p>
                 <span
-                  key={idx}
-                  className="bg-black/10 dark:bg-white/10 px-2 py-1 rounded-full text-xs"
+                  className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                    a.state
+                  )}`}
                 >
-                  {s}
+                  {a.state}
                 </span>
-              ))}
-            </div>
+              </div>
 
-            <div className="flex gap-4 mt-2 flex-wrap">
-              {a.state === "pending" && (
-                <>
-                  <button
-                    onClick={() => updateStatus(a._id, "done")}
-                    className="flex items-center gap-1 px-4 py-2 bg-green-600 text-white rounded-xl"
+              <p className="flex items-center gap-2 text-sm">
+                <CalendarDays size={16} />
+                {new Date(a.time_and_date).toLocaleDateString()} – <Clock size={16} />
+                {new Date(a.time_and_date).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
+
+              <div className="flex items-center gap-2 text-sm flex-wrap">
+                <Scissors size={16} />
+                {a.services.map((s, idx) => (
+                  <span
+                    key={idx}
+                    className="bg-black/10 dark:bg-white/10 px-2 py-1 rounded-full text-xs"
                   >
-                    <CheckCircle2 size={16} />
-                    Done
-                  </button>
-                  <button
-                    onClick={() => updateStatus(a._id, "canceled")}
-                    className="flex items-center gap-1 px-4 py-2 bg-red-600 text-white rounded-xl"
-                  >
-                    <XCircle size={16} />
-                    Cancel
-                  </button>
-                </>
-              )}
-              <button
-                onClick={() => setSelectedAppointment(a)}
-                className="flex items-center gap-1 px-4 py-2 bg-zinc-200 dark:bg-zinc-700 text-black dark:text-white rounded-xl"
-              >
-                <Info size={16} />
-                Details
-              </button>
+                    {s}
+                  </span>
+                ))}
+              </div>
+
+              <div className="flex gap-4 mt-2 flex-wrap">
+                {a.state === "pending" && (
+                  <>
+                    <button
+                      onClick={() => handleStatusClick(a._id, "accepted")}
+                      className="flex items-center gap-1 px-4 py-2 bg-green-600 text-white rounded-xl"
+                      disabled={statusUpdating === a._id + "accepted"}
+                    >
+                      <CheckCircle2 size={16} />
+                      {statusUpdating === a._id + "accepted" ? "Accepting..." : "Accept"}
+                    </button>
+                    <button
+                      onClick={() => handleStatusClick(a._id, "canceled")}
+                      className="flex items-center gap-1 px-4 py-2 bg-red-600 text-white rounded-xl"
+                      disabled={statusUpdating === a._id + "canceled"}
+                    >
+                      <XCircle size={16} />
+                      {statusUpdating === a._id + "canceled" ? "Canceling..." : "Cancel"}
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => setSelectedAppointment(a)}
+                  className="flex items-center gap-1 px-4 py-2 bg-zinc-200 dark:bg-zinc-700 text-black dark:text-white rounded-xl"
+                >
+                  <Info size={16} />
+                  Details
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Detail Modal */}
       {selectedAppointment && (
@@ -248,6 +278,32 @@ export default function BarberAppointments() {
                 className="px-4 py-2 rounded-xl text-sm bg-zinc-100 dark:bg-zinc-700"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmModal.open && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-xl w-full max-w-sm space-y-4">
+            <h2 className="text-lg font-bold text-center">Confirm Action</h2>
+            <p className="text-center text-sm">
+              Are you sure you want to mark this appointment as <span className={confirmModal.newState === "accepted" ? "text-green-600" : "text-red-600"}><b>{confirmModal.newState === "accepted" ? "Accepted" : "Canceled"}</b></span>?
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={handleCancel}
+                className="px-4 py-2 rounded-xl text-sm bg-zinc-100 dark:bg-zinc-700"
+              >
+                No, Go Back
+              </button>
+              <button
+                onClick={handleConfirm}
+                className={`px-4 py-2 rounded-xl text-sm ${confirmModal.newState === "accepted" ? "bg-green-600 text-white" : "bg-red-600 text-white"}`}
+              >
+                Yes, Confirm
               </button>
             </div>
           </div>

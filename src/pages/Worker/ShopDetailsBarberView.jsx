@@ -1,43 +1,49 @@
-import { useParams } from "react-router-dom";
-import BarberCard from "../../components/BarberCard";
+import { useAuth } from "../../context/AuthContext";
 import { useEffect, useState } from "react";
-// import axios from "axios";
 import { Phone, Clock, CalendarDays, Star } from "lucide-react";
 import BarberBottomNav from "../../components/BarberBottomNav";
+import { fetchShopDetailsByBarberId, fetchBarberById } from "../../services/api";
+import BarberCardWorker from "./BarberCardWorker";
 
 export default function ShopDetailsBarber() {
-  const { code } = useParams();
+  const { user, role, loading: authLoading } = useAuth();
   const [shop, setShop] = useState(null);
-  const [gallery, setGallery] = useState([]);
   const [barbers, setBarbers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // simulate fetching
-    const fetchedShop = {
-      shop_id: code,
-      shop_name: "Barber & Blade",
-      localisation: "Tunis",
-      number: "+216 12 345 678",
-      rating: 4.8,
-      work_hours: "09:00 - 18:00",
-      day_off: "Sunday",
-      profilePicture: "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600",
-      coverImage: "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600",
-    };
-    const fetchedGallery = [
-      "https://images.unsplash.com/photo-1603311686008-81cdb3f22096?w=600",
-      "https://images.unsplash.com/photo-1577454825397-eef3c8cdd843?w=600",
-    ];
-    const fetchedBarbers = [
-      { id: "b1", name: "Amine", image: fetchedShop.coverImage, rating: 4.9 },
-      { id: "b2", name: "Karim", image: fetchedShop.coverImage, rating: 4.7 },
-    ];
-    setShop(fetchedShop);
-    setGallery(fetchedGallery);
-    setBarbers(fetchedBarbers);
-  }, [code]);
+    async function fetchData() {
+      setLoading(true);
+      try {
+        // Only proceed if user and role are loaded and role is worker
+        if (!authLoading && user && (role === "worker") && (user.barber_id || user._id || user.id)) {
+          const barberId = user.barber_id || user._id || user.id;
+          const shopData = await fetchShopDetailsByBarberId(barberId);
+          setShop(shopData);
+          // Fetch barber details for each barber ID
+          const barberDetails = await Promise.all(
+            (shopData.barbers || []).map(async (barberId) => {
+              const barber = await fetchBarberById(barberId);
+              return {
+                barber_id: barber.barber_id || barber._id || barber.id || barberId,
+                name: barber.name || "Unknown",
+                image: barber.profile_image || shopData.profilePicture,
+                rating: barber.rating || 0,
+              };
+            })
+          );
+          setBarbers(barberDetails);
+        }
+      } catch (err) {
+        setShop(null);
+      }
+      setLoading(false);
+    }
+    fetchData();
+  }, [user, role, authLoading]);
 
-  if (!shop) return <div>Loading...</div>;
+  if (authLoading || loading) return <div>Loading...</div>;
+  if (!shop) return <div>Shop not found.</div>;
 
   const handleApply = () => {
     console.log(`Applying to shop ${shop.shop_id}`);
@@ -89,26 +95,10 @@ export default function ShopDetailsBarber() {
           </p>
         </div>
 
-        {gallery.length > 0 && (
-          <>
-            <h2 className="text-xl font-semibold mt-8 mb-4">Shop Gallery</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-              {gallery.map((img, i) => (
-                <img
-                  key={i}
-                  src={img}
-                  alt={`Shop ${i + 1}`}
-                  className="rounded-xl object-cover h-40 w-full shadow"
-                />
-              ))}
-            </div>
-          </>
-        )}
-
         <h2 className="text-xl font-semibold mt-4 mb-4">Team & Ratings</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {barbers.map((barber) => (
-            <BarberCard key={barber.id} barber={barber} />
+            <BarberCardWorker key={barber.barber_id} barber={barber} />
           ))}
         </div>
       </div>

@@ -11,19 +11,20 @@ import {
 import BarberBottomNav from "../../components/BarberBottomNav";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import api from "../../services/api";
+import { useEffect } from "react";
 
 export default function BarberSettings() {
   const [darkMode, setDarkMode] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [privacyPublic, setPrivacyPublic] = useState(true);
   const [autoAccept, setAutoAccept] = useState(false);
   const [workingHours, setWorkingHours] = useState({
     start: "09:00",
     end: "18:00",
   });
   const [restDays, setRestDays] = useState([]);
+  const [successMsg, setSuccessMsg] = useState("");
 
-  const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   const toggleRestDay = (day) => {
     setRestDays((prev) =>
@@ -32,11 +33,86 @@ export default function BarberSettings() {
   };
 
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+
+  // Optionally, fetch initial values from backend here
+  useEffect(() => {
+    async function fetchInitialSettings() {
+      if (!user) return;
+      const barberId = user.barber_id || user._id || user.id;
+      try {
+        // Fetch work hours
+        const barberRes = await api.get(`/barbers/${barberId}`);
+        if (barberRes.data && barberRes.data.work_hours) {
+          const { start, end } = barberRes.data.work_hours;
+          setWorkingHours({
+            start: start || "09:00",
+            end: end || "18:00"
+          });
+        }
+        // Fetch rest days
+        const daysRes = await api.get(`/shops/barber/${barberId}/daysoff`);
+        if (daysRes.data && daysRes.data.daysOff) {
+          setRestDays(daysRes.data.daysOff);
+        }
+      } catch {}
+    }
+    fetchInitialSettings();
+  }, [user]);
+
+  // Fetch initial autoAccept value from backend
+  useEffect(() => {
+    async function fetchAutoAccept() {
+      if (!user) return;
+      const barberId = user.barber_id || user._id || user.id;
+      try {
+        const res = await api.get(`/barbers/${barberId}`);
+        if (typeof res.data.auto_accept === 'boolean') {
+          setAutoAccept(res.data.auto_accept);
+        }
+      } catch {}
+    }
+    fetchAutoAccept();
+  }, [user]);
+
+  const handleAutoAcceptChange = async () => {
+    if (!user) return;
+    const barberId = user.barber_id || user._id || user.id;
+    const newValue = !autoAccept;
+    setAutoAccept(newValue);
+    try {
+      await api.patch(`/barbers/${barberId}/auto-accept`, { auto_accept: newValue });
+    } catch (err) {
+      // Optionally show error or revert
+      setAutoAccept(!newValue);
+    }
+  };
 
   const handleLogout = () => {
     logout();
     navigate("/login");
+  };
+
+  const handleSaveSettings = async () => {
+    if (!user) return;
+    const barberId = user.barber_id || user._id || user.id;
+    try {
+      // Sanitize to ensure both start and end are present
+      const sanitizedWorkHours = {
+        start: workingHours.start || "09:00",
+        end: workingHours.end || "18:00"
+      };
+      console.log("Sending work_hours:", sanitizedWorkHours);
+      // Update work hours
+      await api.patch(`/barbers/${barberId}/work-hours`, { work_hours: sanitizedWorkHours });
+      // Update rest days
+      await api.patch(`/barbers/${barberId}/dayoff`, { dayoff: restDays });
+      setSuccessMsg("Settings saved successfully!");
+      setTimeout(() => setSuccessMsg(""), 2000);
+    } catch (err) {
+      setSuccessMsg("Failed to save settings.");
+      setTimeout(() => setSuccessMsg(""), 2000);
+    }
   };
 
   return (
@@ -50,33 +126,16 @@ export default function BarberSettings() {
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <User size={18} /> Account
           </h2>
-          <div className="flex justify-between items-center border-b pb-3 border-zinc-200 dark:border-zinc-700">
-            <p>Notifications</p>
-            <input
-              type="checkbox"
-              className="accent-black scale-125"
-              checked={notificationsEnabled}
-              onChange={() => setNotificationsEnabled(!notificationsEnabled)}
-            />
-          </div>
+          
 
-          <div className="flex justify-between items-center border-b pb-3 border-zinc-200 dark:border-zinc-700">
-            <p>Public Profile</p>
-            <input
-              type="checkbox"
-              className="accent-black scale-125"
-              checked={privacyPublic}
-              onChange={() => setPrivacyPublic(!privacyPublic)}
-            />
-          </div>
-
+          
           <div className="flex justify-between items-center border-b pb-3 border-zinc-200 dark:border-zinc-700">
             <p>Auto-Accept Appointments</p>
             <input
               type="checkbox"
               className="accent-black scale-125"
               checked={autoAccept}
-              onChange={() => setAutoAccept(!autoAccept)}
+              onChange={handleAutoAcceptChange}
             />
           </div>
         </section>
@@ -167,10 +226,16 @@ export default function BarberSettings() {
 
         {/* Save / Logout */}
         <div className="space-y-4">
-          <button className="w-full py-3 bg-black text-white dark:bg-white dark:text-black rounded-xl flex items-center justify-center gap-2">
+          <button
+            className="w-full py-3 bg-black text-white dark:bg-white dark:text-black rounded-xl flex items-center justify-center gap-2"
+            onClick={handleSaveSettings}
+          >
             <Save size={18} />
             Save Settings
           </button>
+          {successMsg && (
+            <div className="text-center text-green-600 dark:text-green-400 font-semibold">{successMsg}</div>
+          )}
           <button
             onClick={handleLogout}
             className="w-full py-3 bg-red-600 text-white rounded-xl flex items-center justify-center gap-2"
