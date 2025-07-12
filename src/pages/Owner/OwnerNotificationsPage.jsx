@@ -1,41 +1,55 @@
 import { useEffect, useState } from "react";
-import {
-  Bell,
-  CalendarCheck,
-} from "lucide-react";
-import BarberBottomNav from "../../components/BarberBottomNav";
-import { fetchNotifications } from "../../services/api";
+import { Bell, Star, Briefcase, CalendarCheck, Store, ArrowRight } from "lucide-react";
+import ShopOwnerBottomNav from "../../components/ShopOwnerBottomNav";
+import { fetchNotifications, fetchShopByOwnerId } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
-export default function BarberNotificationsPage() {
+export default function OwnerNotificationsPage() {
   const { user, role } = useAuth();
   const [notifications, setNotifications] = useState([]);
+  const [shopId, setShopId] = useState(null);
 
   useEffect(() => {
+    async function getShopId() {
+      if (role === "owner" && user?.owner_id) {
+        const shop = await fetchShopByOwnerId(user.owner_id);
+        setShopId(shop.shop_id);
+      }
+    }
+    getShopId();
+  }, [user, role]);
+
+  useEffect(() => {
+    if (!shopId) return;
     let interval;
     async function loadNotifications() {
       try {
         const data = await fetchNotifications();
-        let filtered = [];
-        if (role === "worker") {
-          filtered = data.filter(n => n.barber_id === user?.barber_id || n.barber_id === user?._id);
-        }
+        // Only show notifications where shop_id matches and isOwner is true
+        const filtered = data.filter(n => n.shop_id === shopId && n.isOwner === true);
         setNotifications(filtered);
-      } catch {}
+      } catch (e) {
+        console.error('Error loading notifications:', e);
+      }
     }
     loadNotifications();
     interval = setInterval(loadNotifications, 10000);
     return () => clearInterval(interval);
-  }, [user, role]);
+  }, [shopId]);
 
   const getIcon = (n) => {
+    if (n.title?.toLowerCase().includes("job")) return <Briefcase size={20} className="text-blue-500" />;
     if (n.title?.toLowerCase().includes("appointment")) return <CalendarCheck size={20} className="text-green-500" />;
+    if (n.title?.toLowerCase().includes("review")) return <Star size={20} className="text-yellow-500" />;
+    if (n.title?.toLowerCase().includes("shop")) return <Store size={20} className="text-purple-500" />;
     return <Bell size={20} />;
   };
 
+  
+
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-900 text-black dark:text-white px-6 pt-10 pb-24">
-      <BarberBottomNav />
+      <ShopOwnerBottomNav />
       <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
         <Bell size={24} /> Notifications
       </h1>
@@ -60,10 +74,20 @@ export default function BarberNotificationsPage() {
                   </p>
                 </div>
               </div>
+              <div className="flex flex-col items-end gap-2">
+                {n.title?.toLowerCase().includes("job") && n.shop_id && (
+                  <a
+                    href={`/shop/${n.shop_id}`}
+                    className="text-sm text-blue-600 hover:underline flex items-center"
+                  >
+                    View Offer <ArrowRight size={14} className="ml-1" />
+                  </a>
+                )}
+              </div>
             </div>
           ))}
         </div>
       )}
     </div>
   );
-}
+} 

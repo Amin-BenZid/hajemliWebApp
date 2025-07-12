@@ -362,3 +362,9 @@ export async function fetchShopDetailedAppointments(shopId) {
   const response = await api.get(`/appointments/shop/${shopId}/detailed-list`);
   return response.data;
 }
+
+// Fetch notifications for the logged-in user
+export async function fetchNotifications() {
+  const response = await api.get('/notifications');
+  return response.data;
+}

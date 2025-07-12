@@ -36,6 +36,8 @@ import BarberSettings from "./pages/Worker/BarberSettings";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import ConfirmResetPassword from "./pages/ConfirmResetPassword";
+import ClientNotificationsPage from "./pages/Client/ClientNotificationsPage";
+import OwnerNotificationsPage from "./pages/Owner/OwnerNotificationsPage";
 
 // Components
 import ThemeToggle from "./components/ThemeToggle";
@@ -66,7 +68,7 @@ function AppRoutes() {
     <>
       <div className="flex items-center gap-4">
         <div className="fixed w-10 h-10 top-3 right-16 z-50 p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-white shadow-md hover:scale-105 transition-all duration-300">
-          <NotificationBell count={4} />
+          <NotificationBell />
         </div>
         <ThemeToggle />
       </div>
@@ -90,6 +92,7 @@ function AppRoutes() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/home" element={<ClientShopPage />} />
             <Route path="/barber/:barberId" element={<ClientBarberProfile />} />
+            <Route path="/notifications" element={<ClientNotificationsPage />} />
             <Route path="*" element={<DiscoverShops />} />
           </>
         ) : role === "worker" ? (
@@ -117,6 +120,7 @@ function AppRoutes() {
             <Route path="/owner/analytics" element={<OwnerAnalyticsPage />} />
             <Route path="/owner/settings" element={<OwnerSettings />} />
             <Route path="/owner/joboffers" element={<OwnerJobOffers />} />
+            <Route path="/owner/notifications" element={<OwnerNotificationsPage />} />
             <Route path="*" element={<Navigate to="/owner/dashboard" />} />
           </>
         ) : (

@@ -114,10 +114,12 @@ export default function CalendarSlot() {
   };
 
   const generateTimeSlots = () => {
+    console.log("selectedDate:", selectedDate, "work_hours:", shop.work_hours, "workHoursError:", workHoursError, "loadingWorkHours:", loadingWorkHours);
     if (!selectedDate || !shop.work_hours) return [];
     const [openTime, closeTime] = shop.work_hours.split(" - ");
     const start = parseTime(openTime);
-    const end = parseTime(closeTime);
+    let end = parseTime(closeTime);
+    if (end === 0) end = 24 * 60; // treat 00:00 as midnight at end of day
     const step = 30;
     const duration = getServiceTotalDuration(services);
     const slots = [];
