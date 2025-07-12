@@ -1,38 +1,152 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Dialog } from "@headlessui/react";
 import { Building, Camera, Save, Scissors, Clock, MapPin, X } from "lucide-react";
 import OwnerBottomNav from "../../components/ShopOwnerBottomNav";
+import { useAuth } from "../../context/AuthContext";
+import { fetchShopByOwnerId, fetchShopById, updateShop, uploadShopProfilePicture, uploadShopCoverPicture } from "../../services/api";
+import { useNavigate } from "react-router-dom";
 
 export default function ShopSettings() {
-  const [shopName, setShopName] = useState("Hajemli Studio");
-  const [shopAddress, setShopAddress] = useState("123 Main Street");
-  const [shopCode, setShopCode] = useState("HAJEM123");
-  const [isOpen, setIsOpen] = useState(true);
-  const [workingHours, setWorkingHours] = useState({
-    open: "09:00",
-    close: "18:00",
-    breakStart: "13:00",
-    breakEnd: "14:00",
-  });
-  const [daysOff, setDaysOff] = useState(["Sunday"]);
+  const { user } = useAuth();
+  const [shop, setShop] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const imageInputRef = useRef(null);
   const [uploadedImages, setUploadedImages] = useState([]);
+  const [uploadingProfile, setUploadingProfile] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!user?.owner_id) return;
+      setLoading(true);
+      setError("");
+      try {
+        const ownerShop = await fetchShopByOwnerId(user.owner_id);
+        if (!ownerShop.shop_id) {
+          setShop(null);
+          setLoading(false);
+          return;
+        }
+        const shopDetails = await fetchShopById(ownerShop.shop_id);
+        setShop(shopDetails);
+      } catch (err) {
+        setError("Failed to load shop data.");
+        setShop(null);
+      }
+      setLoading(false);
+    };
+    fetchData();
+  }, [user]);
 
   const handleToggleDay = (day) => {
-    setDaysOff((prev) =>
-      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
-    );
+    if (!shop) return;
+    setShop((prev) => ({
+      ...prev,
+      day_off: prev.day_off === day ? "" : day,
+    }));
   };
 
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
     const previews = files.map((file) => URL.createObjectURL(file));
     setUploadedImages((prev) => [...prev, ...previews]);
+    // You can implement image upload logic here if needed
   };
+
+  const handleSave = async () => {
+    if (!shop?.shop_id) return;
+    setSaving(true);
+    setError("");
+    try {
+      await updateShop(shop.shop_id, shop);
+      navigate("/owner/shop");
+    } catch (err) {
+      setError("Failed to save changes.");
+    }
+    setSaving(false);
+  };
+
+  // Handle profile image upload
+  const handleProfileImageChange = async (e) => {
+    if (!shop?.shop_id || !e.target.files?.[0]) return;
+    setUploadingProfile(true);
+    try {
+      const res = await uploadShopProfilePicture(shop.shop_id, e.target.files[0]);
+      setShop((prev) => ({ ...prev, profilePicture: res.imageUrl }));
+    } catch (err) {
+      setError("Failed to upload profile picture.");
+    }
+    setUploadingProfile(false);
+  };
+
+  // Handle cover image upload
+  const handleCoverImageChange = async (e) => {
+    if (!shop?.shop_id || !e.target.files?.[0]) return;
+    setUploadingCover(true);
+    try {
+      const res = await uploadShopCoverPicture(shop.shop_id, e.target.files[0]);
+      setShop((prev) => ({ ...prev, coverImage: res.imageUrl }));
+    } catch (err) {
+      setError("Failed to upload cover picture.");
+    }
+    setUploadingCover(false);
+  };
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div className='text-red-500'>{error}</div>;
+  if (!shop) return <div>No shop found.</div>;
 
   return (
     <div className="p-4 pb-24 pt-16 space-y-6 dark:text-white min-h-screen bg-white dark:bg-zinc-900">
+      {/* Profile and Cover Images */}
+      <div className="flex flex-col md:flex-row gap-6 items-center justify-center mb-4">
+        <div className="flex flex-col items-center gap-2">
+          <div className="relative">
+            <img
+              src={shop.profilePicture}
+              alt="Profile"
+              className="w-24 h-24 rounded-full object-cover border-4 border-zinc-200 dark:border-zinc-700"
+            />
+            <label className="absolute bottom-0 right-0 bg-black text-white rounded-full p-1 cursor-pointer hover:bg-zinc-700">
+              <Camera className="w-4 h-4" />
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleProfileImageChange}
+                disabled={uploadingProfile}
+              />
+            </label>
+          </div>
+          {uploadingProfile && <span className="text-xs text-zinc-500">Uploading...</span>}
+          <span className="text-xs">Profile Picture</span>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="relative">
+            <img
+              src={shop.coverImage}
+              alt="Cover"
+              className="w-32 h-20 rounded-lg object-cover border-4 border-zinc-200 dark:border-zinc-700"
+            />
+            <label className="absolute bottom-0 right-0 bg-black text-white rounded-full p-1 cursor-pointer hover:bg-zinc-700">
+              <Camera className="w-4 h-4" />
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleCoverImageChange}
+                disabled={uploadingCover}
+              />
+            </label>
+          </div>
+          {uploadingCover && <span className="text-xs text-zinc-500">Uploading...</span>}
+          <span className="text-xs">Cover Image</span>
+        </div>
+      </div>
       <h1 className="text-2xl font-bold text-black dark:text-white flex items-center gap-2">
         <Building className="w-6 h-6" /> Shop Settings
       </h1>
@@ -43,20 +157,21 @@ export default function ShopSettings() {
         <InputField
           icon={<Building className="w-4 h-4" />}
           label="Shop Name"
-          value={shopName}
-          onChange={(e) => setShopName(e.target.value)}
+          value={shop.shop_name || ""}
+          onChange={(e) => setShop({ ...shop, shop_name: e.target.value })}
         />
         <InputField
           icon={<MapPin className="w-4 h-4" />}
           label="Address"
-          value={shopAddress}
-          onChange={(e) => setShopAddress(e.target.value)}
+          value={shop.localisation || ""}
+          onChange={(e) => setShop({ ...shop, localisation: e.target.value })}
         />
         <InputField
           icon={<Camera className="w-4 h-4" />}
           label="Shop Code"
-          value={shopCode}
-          onChange={(e) => setShopCode(e.target.value)}
+          value={shop.shop_id || ""}
+          onChange={() => {}}
+          disabled
         />
       </div>
 
@@ -65,16 +180,14 @@ export default function ShopSettings() {
         <div className="flex items-center gap-2">
           <Clock className="w-5 h-5" />
           <span className="text-sm font-medium">
-            Shop is {isOpen ? "Open" : "Closed"}
+            Shop is Open
           </span>
         </div>
         <button
-          onClick={() => setIsOpen(!isOpen)}
-          className={`px-4 py-1 rounded-full text-sm font-medium ${
-            isOpen ? "bg-green-500 text-white" : "bg-zinc-500 text-white"
-          }`}
+          className={`px-4 py-1 rounded-full text-sm font-medium bg-green-500 text-white`}
+          disabled
         >
-          {isOpen ? "Open" : "Closed"}
+          Open
         </button>
       </div>
 
@@ -84,27 +197,13 @@ export default function ShopSettings() {
         <div className="grid grid-cols-2 gap-4">
           <TimeField
             label="Open Time"
-            value={workingHours.open}
-            onChange={(e) => setWorkingHours({ ...workingHours, open: e.target.value })}
+            value={shop.work_hours?.split(" - ")[0] || ""}
+            onChange={(e) => setShop({ ...shop, work_hours: `${e.target.value} - ${shop.work_hours?.split(" - ")[1] || ""}` })}
           />
           <TimeField
             label="Close Time"
-            value={workingHours.close}
-            onChange={(e) => setWorkingHours({ ...workingHours, close: e.target.value })}
-          />
-          <TimeField
-            label="Break Start"
-            value={workingHours.breakStart}
-            onChange={(e) =>
-              setWorkingHours({ ...workingHours, breakStart: e.target.value })
-            }
-          />
-          <TimeField
-            label="Break End"
-            value={workingHours.breakEnd}
-            onChange={(e) =>
-              setWorkingHours({ ...workingHours, breakEnd: e.target.value })
-            }
+            value={shop.work_hours?.split(" - ")[1] || ""}
+            onChange={(e) => setShop({ ...shop, work_hours: `${shop.work_hours?.split(" - ")[0] || ""} - ${e.target.value}` })}
           />
         </div>
       </div>
@@ -126,7 +225,7 @@ export default function ShopSettings() {
               key={day}
               onClick={() => handleToggleDay(day)}
               className={`px-3 py-1 rounded-full text-sm border transition ${
-                daysOff.includes(day)
+                shop.day_off === day
                   ? "bg-red-500 text-white border-red-500"
                   : "bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-white border-zinc-300 dark:border-zinc-600"
               }`}
@@ -147,17 +246,15 @@ export default function ShopSettings() {
           Manage Team
         </a>
 
-        <button
-          onClick={() => setImageModalOpen(true)}
-          className="bg-zinc-100 dark:bg-zinc-800 p-3 rounded-xl flex items-center justify-center gap-2 font-medium"
-        >
-          <Camera className="w-4 h-4" />
-          Upload Shop Images
-        </button>
+      
 
-        <button className="bg-green-500 text-white p-3 rounded-xl flex items-center justify-center gap-2 font-medium">
+        <button
+          onClick={handleSave}
+          className="bg-green-500 text-white p-3 rounded-xl flex items-center justify-center gap-2 font-medium disabled:opacity-60"
+          disabled={saving}
+        >
           <Save className="w-4 h-4" />
-          Save Changes
+          {saving ? "Saving..." : "Save Changes"}
         </button>
       </div>
 
@@ -206,7 +303,7 @@ export default function ShopSettings() {
   );
 }
 
-function InputField({ label, value, onChange, icon }) {
+function InputField({ label, value, onChange, icon, disabled }) {
   return (
     <div className="flex items-center gap-2 border rounded-md p-2 dark:border-zinc-700">
       {icon}
@@ -216,6 +313,7 @@ function InputField({ label, value, onChange, icon }) {
         onChange={onChange}
         placeholder={label}
         className="bg-transparent outline-none flex-1 text-sm dark:text-white"
+        disabled={disabled}
       />
     </div>
   );

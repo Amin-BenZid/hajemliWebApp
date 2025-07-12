@@ -1,5 +1,5 @@
 // pages/OwnerDashboard.jsx
-import { useState } from "react";
+import { useState, useEffect, useContext } from "react";
 import { Link } from "react-router-dom";
 import {
   CalendarDays,
@@ -27,29 +27,10 @@ import {
 } from "recharts";
 import { Dialog } from "@headlessui/react";
 import OwnerBottomNav from "../../components/ShopOwnerBottomNav";
+import { fetchShopStatistics, fetchShopByOwnerId, fetchBarberStatsByShopId, fetchTopServicesByShopId, fetchShopById, fetchShopIncomeTrend, fetchShopSatisfaction } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 
-// Fake Stats
-const dashboardStats = {
-  appointmentsToday: 8,
-  incomeThisMonth: 3450,
-  barbers: 4,
-  topService: "Skin Fade",
-};
-
-const incomeTrendMonth = [
-  { day: "Week 1", value: 1800 },
-  { day: "Week 2", value: 2300 },
-  { day: "Week 3", value: 2150 },
-  { day: "Week 4", value: 3000 },
-];
-
-const barberPerformance = [
-  { name: "Ali", appointments: 22, income: 1200, active: true },
-  { name: "Yassine", appointments: 18, income: 1050, active: false },
-  { name: "Sami", appointments: 13, income: 850, active: true },
-  { name: "Hamza", appointments: 7, income: 500, active: false },
-];
-
+// incomeTrend will be fetched from API
 const topServices = [
   { name: "Skin Fade", count: 40 },
   { name: "Beard Trim", count: 28 },
@@ -57,17 +38,77 @@ const topServices = [
   { name: "Kids Cut", count: 10 },
 ];
 
-const satisfactionData = [
-  { name: "Very Satisfied", value: 65 },
-  { name: "Satisfied", value: 25 },
-  { name: "Unsatisfied", value: 10 },
-];
-
+// satisfactionData will be fetched from API
 const pieColors = ["#10b981", "#3b82f6", "#ef4444"];
 
 export default function OwnerDashboard() {
   const [modal, setModal] = useState(null);
   const [timeRange, setTimeRange] = useState("month");
+  const [dashboardStats, setDashboardStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { user } = useAuth();
+  const [barberPerformance, setBarberPerformance] = useState([]);
+  const [topServices, setTopServices] = useState([]);
+  const [shopDetails, setShopDetails] = useState(null);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // JS months are 0-based
+  const [incomeTrend, setIncomeTrend] = useState([]);
+  const [satisfactionData, setSatisfactionData] = useState([]);
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const shop = await fetchShopByOwnerId(user.owner_id || user._id);
+        const details = await fetchShopById(shop.shop_id);
+        setShopDetails(details);
+        const stats = await fetchShopStatistics(shop.shop_id);
+        setDashboardStats(stats);
+        // Fetch barber performance
+        const barbers = await fetchBarberStatsByShopId(shop.shop_id);
+        setBarberPerformance(barbers);
+        // Fetch top services
+        const services = await fetchTopServicesByShopId(shop.shop_id);
+        setTopServices(services);
+      } catch (err) {
+        setError("Failed to load statistics");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadStats();
+  }, [user]);
+
+  // Fetch income trend when shopDetails, year, or month changes
+  useEffect(() => {
+    if (!shopDetails) return;
+    async function loadIncomeTrend() {
+      try {
+        const trend = await fetchShopIncomeTrend(shopDetails.shop_id, selectedYear, selectedMonth);
+        setIncomeTrend(trend);
+      } catch {
+        setIncomeTrend([]);
+      }
+    }
+    loadIncomeTrend();
+  }, [shopDetails, selectedYear, selectedMonth]);
+
+  // Fetch satisfaction data when shopDetails changes
+  useEffect(() => {
+    if (!shopDetails) return;
+    async function loadSatisfaction() {
+      try {
+        const data = await fetchShopSatisfaction(shopDetails.shop_id);
+        setSatisfactionData(data);
+      } catch {
+        setSatisfactionData([]);
+      }
+    }
+    loadSatisfaction();
+  }, [shopDetails]);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>{error}</div>;
 
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white px-4 pt-6 pb-32">
@@ -90,13 +131,13 @@ export default function OwnerDashboard() {
         <DashboardCard
           icon={<Users className="w-5 h-5" />}
           label="Barbers"
-          value={dashboardStats.barbers}
+          value={dashboardStats.totalBarbers}
           onClick={() => setModal("barbers")}
         />
         <DashboardCard
           icon={<Scissors className="w-5 h-5" />}
           label="Top Service"
-          value={dashboardStats.topService}
+          value={dashboardStats.topService ? dashboardStats.topService.name : "N/A"}
           onClick={() => setModal("services")}
         />
       </div>
@@ -110,9 +151,19 @@ export default function OwnerDashboard() {
             Edit
           </Link>
         </div>
-        <div className="w-full h-36 bg-zinc-300 dark:bg-zinc-700 rounded-xl mt-3 flex justify-center items-center">
-          <Image className="w-6 h-6 text-white opacity-60" />
-          <span className="ml-2 text-white opacity-70">Shop Images</span>
+        <div className="w-full h-36 bg-zinc-300 dark:bg-zinc-700 rounded-xl mt-3 flex justify-center items-center overflow-hidden">
+          {shopDetails && shopDetails.coverImage ? (
+            <img
+              src={shopDetails.coverImage}
+              alt="Shop Cover"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <>
+              <Image className="w-6 h-6 text-white opacity-60" />
+              <span className="ml-2 text-white opacity-70">Shop Images</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -122,11 +173,22 @@ export default function OwnerDashboard() {
           <h3 className="text-lg font-semibold">📈 Income Trend</h3>
           <div className="flex items-center gap-3">
             <select
-              value={timeRange}
-              onChange={(e) => setTimeRange(e.target.value)}
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(Number(e.target.value))}
               className="text-sm border rounded-md p-1 bg-zinc-100 dark:bg-zinc-800 dark:text-white"
             >
-              <option value="month">This Month</option>
+              {[...Array(12)].map((_, i) => (
+                <option key={i+1} value={i+1}>{new Date(0, i).toLocaleString('default', { month: 'long' })}</option>
+              ))}
+            </select>
+            <select
+              value={selectedYear}
+              onChange={e => setSelectedYear(Number(e.target.value))}
+              className="text-sm border rounded-md p-1 bg-zinc-100 dark:bg-zinc-800 dark:text-white"
+            >
+              {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
             </select>
             <Link to="/owner/analytics" className="text-blue-500 text-sm flex gap-1">
               <BarChart2 className="w-4 h-4" />
@@ -136,7 +198,7 @@ export default function OwnerDashboard() {
         </div>
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={incomeTrendMonth}>
+            <LineChart data={incomeTrend}>
               <XAxis dataKey="day" stroke="#999" />
               <YAxis stroke="#999" />
               <Tooltip />
@@ -156,7 +218,7 @@ export default function OwnerDashboard() {
                 data={satisfactionData}
                 dataKey="value"
                 nameKey="name"
-                outerRadius={80}
+                outerRadius={70}
                 label
               >
                 {satisfactionData.map((entry, index) => (

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   LineChart,
   Line,
@@ -23,69 +23,10 @@ import {
   Star,
 } from "lucide-react";
 import OwnerBottomNav from "../../components/ShopOwnerBottomNav";
+import { useAuth } from "../../context/AuthContext";
+import { fetchShopByOwnerId, fetchShopIncomeStats, fetchShopWeeklyAppointmentsStatus, fetchTopServicesByShopId, fetchShopStarCounts, fetchShopBarberCounts, fetchShopMonthlyBarberStats } from "../../services/api";
 
-const incomeStats = {
-  week: {
-    data: [
-      { label: "Mon", value: 300 },
-      { label: "Tue", value: 420 },
-      { label: "Wed", value: 360 },
-      { label: "Thu", value: 500 },
-      { label: "Fri", value: 700 },
-      { label: "Sat", value: 950 },
-      { label: "Sun", value: 600 },
-    ],
-    total: 3830,
-    previous: 3400,
-  },
-  month: {
-    data: [
-      { label: "Week 1", value: 1800 },
-      { label: "Week 2", value: 2300 },
-      { label: "Week 3", value: 2150 },
-      { label: "Week 4", value: 3000 },
-    ],
-    total: 9250,
-    previous: 8700,
-  },
-  year: {
-    data: [
-      { label: "Jan", value: 4000 },
-      { label: "Feb", value: 3500 },
-      { label: "Mar", value: 4200 },
-      { label: "Apr", value: 3800 },
-      { label: "May", value: 5000 },
-      { label: "Jun", value: 4800 },
-    ],
-    total: 25300,
-    previous: 24000,
-  },
-};
-
-const appointmentsData = [
-  { label: "Mon", appts: 6, canceled: 1 },
-  { label: "Tue", appts: 9, canceled: 0 },
-  { label: "Wed", appts: 7, canceled: 1 },
-  { label: "Thu", appts: 5, canceled: 2 },
-  { label: "Fri", appts: 10, canceled: 1 },
-  { label: "Sat", appts: 12, canceled: 0 },
-  { label: "Sun", appts: 4, canceled: 1 },
-];
-
-const servicesData = [
-  { name: "Skin Fade", value: 35 },
-  { name: "Beard Trim", value: 22 },
-  { name: "Hair Color", value: 12 },
-  { name: "Kids Cut", value: 15 },
-];
-
-const barbersData = [
-  { name: "Ali", value: 40 },
-  { name: "Sami", value: 28 },
-  { name: "Hamza", value: 21 },
-  { name: "Yassine", value: 17 },
-];
-
+// barbersData will be fetched from API
 const satisfactionData = [
   { rating: "5★", count: 42 },
   { rating: "4★", count: 18 },
@@ -94,55 +35,144 @@ const satisfactionData = [
   { rating: "1★", count: 1 },
 ];
 
-const individualBarbers = {
-  Ali: {
-    income: 3200,
-    appts: 40,
-    trend: [
-      { label: "Week 1", value: 600 },
-      { label: "Week 2", value: 700 },
-      { label: "Week 3", value: 800 },
-      { label: "Week 4", value: 1100 },
-    ],
-  },
-  Sami: {
-    income: 2100,
-    appts: 28,
-    trend: [
-      { label: "Week 1", value: 400 },
-      { label: "Week 2", value: 500 },
-      { label: "Week 3", value: 500 },
-      { label: "Week 4", value: 700 },
-    ],
-  },
-};
-
+// individualBarbers will be fetched from API
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#a855f7"];
 
 export default function OwnerAnalytics() {
-  const [selectedBarber, setSelectedBarber] = useState("Ali");
+  const [individualBarbers, setIndividualBarbers] = useState({});
+  const barberNames = Object.keys(individualBarbers);
+  const [selectedBarber, setSelectedBarber] = useState(barberNames[0] || "");
   const [range, setRange] = useState("week");
+  const { user } = useAuth();
+  const [incomeStats, setIncomeStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [appointmentsData, setAppointmentsData] = useState([]);
+  const [servicesData, setServicesData] = useState([]);
+  const [satisfactionData, setSatisfactionData] = useState([]);
+  const [barbersData, setBarbersData] = useState([]);
+  const [shopName, setShopName] = useState("");
 
-  const incomeData = incomeStats[range].data;
-  const currentTotal = incomeStats[range].total;
-  const previousTotal = incomeStats[range].previous;
-  const growth = ((currentTotal - previousTotal) / previousTotal) * 100;
-  const growthIcon =
-    growth >= 0 ? (
-      <TrendingUp className="w-4 h-4" />
-    ) : (
-      <TrendingDown className="w-4 h-4" />
-    );
-  const growthColor = growth >= 0 ? "text-green-500" : "text-red-500";
-  const currentBarber = individualBarbers[selectedBarber];
+  useEffect(() => {
+    async function loadIncomeStats() {
+      setLoading(true);
+      setError(null);
+      try {
+        // Get shop by owner id
+        const shop = await fetchShopByOwnerId(user.owner_id || user._id);
+        setShopName(shop.shop_name || "");
+        const stats = await fetchShopIncomeStats(shop.shop_id);
+        setIncomeStats(stats);
+      } catch (err) {
+        setError("Failed to load income stats");
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (user) loadIncomeStats();
+  }, [user]);
 
+  useEffect(() => {
+    async function loadAppointmentsData() {
+      try {
+        const shop = await fetchShopByOwnerId(user.owner_id || user._id);
+        const data = await fetchShopWeeklyAppointmentsStatus(shop.shop_id);
+        setAppointmentsData(data);
+      } catch {
+        setAppointmentsData([]);
+      }
+    }
+    if (user) loadAppointmentsData();
+  }, [user]);
+
+  useEffect(() => {
+    async function loadServicesData() {
+      try {
+        const shop = await fetchShopByOwnerId(user.owner_id || user._id);
+        const data = await fetchTopServicesByShopId(shop.shop_id);
+        // API returns { name, count } but recharts expects { name, value }
+        setServicesData(data.map(s => ({ name: s.name, value: s.count })));
+      } catch {
+        setServicesData([]);
+      }
+    }
+    if (user) loadServicesData();
+  }, [user]);
+
+  useEffect(() => {
+    async function loadSatisfactionData() {
+      try {
+        const shop = await fetchShopByOwnerId(user.owner_id || user._id);
+        const data = await fetchShopStarCounts(shop.shop_id);
+        setSatisfactionData(data);
+      } catch {
+        setSatisfactionData([]);
+      }
+    }
+    if (user) loadSatisfactionData();
+  }, [user]);
+
+  useEffect(() => {
+    async function loadBarbersData() {
+      try {
+        const shop = await fetchShopByOwnerId(user.owner_id || user._id);
+        const data = await fetchShopBarberCounts(shop.shop_id);
+        setBarbersData(data);
+      } catch {
+        setBarbersData([]);
+      }
+    }
+    if (user) loadBarbersData();
+  }, [user]);
+
+  useEffect(() => {
+    async function loadIndividualBarbers() {
+      try {
+        const shop = await fetchShopByOwnerId(user.owner_id || user._id);
+        const data = await fetchShopMonthlyBarberStats(shop.shop_id);
+        setIndividualBarbers(data);
+      } catch {
+        setIndividualBarbers({});
+      }
+    }
+    if (user) loadIndividualBarbers();
+  }, [user]);
+
+  let incomeData = [];
+  let currentTotal = 0;
+  let previousTotal = 0;
+  let growth = 0;
+  let growthIcon = null;
+  let growthColor = "";
+  if (incomeStats && incomeStats[range]) {
+    incomeData = incomeStats[range].data;
+    currentTotal = incomeStats[range].total;
+    previousTotal = incomeStats[range].previous;
+    growth = previousTotal === 0 ? 0 : ((currentTotal - previousTotal) / previousTotal) * 100;
+    growthIcon =
+      growth >= 0 ? (
+        <TrendingUp className="w-4 h-4" />
+      ) : (
+        <TrendingDown className="w-4 h-4" />
+      );
+    growthColor = growth >= 0 ? "text-green-500" : "text-red-500";
+  }
+  const currentBarber = individualBarbers[selectedBarber] || { income: 0, appts: 0, trend: [] };
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white transition-colors duration-300 p-4 pb-24 pt-16 space-y-8">
       <div className="flex items-center justify-between">
         <OwnerBottomNav />
-        <h1 className="text-2xl font-bold flex items-center gap-2 text-black dark:text-white">
-          <BarChart3 className="w-6 h-6" /> Shop Analytics
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2 text-black dark:text-white">
+            <BarChart3 className="w-6 h-6" /> Shop Analytics
+          </h1>
+          {shopName && (
+            <div className="text-lg font-semibold text-zinc-700 dark:text-zinc-300 mt-1">{shopName}</div>
+          )}
+        </div>
         <select
           value={range}
           onChange={(e) => setRange(e.target.value)}
@@ -160,9 +190,7 @@ export default function OwnerAnalytics() {
           <h2 className="font-semibold flex items-center gap-2">
             <DollarSign className="w-5 h-5" /> Income ({range})
           </h2>
-          <p className={`text-sm flex items-center gap-1 ${growthColor}`}>
-            {growthIcon} {Math.abs(growth).toFixed(1)}% vs last {range}
-          </p>
+          
         </div>
         <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
@@ -266,7 +294,7 @@ export default function OwnerAnalytics() {
             onChange={(e) => setSelectedBarber(e.target.value)}
             className="text-sm border rounded-md p-1 bg-zinc-100 dark:bg-zinc-800 dark:text-white"
           >
-            {Object.keys(individualBarbers).map((b) => (
+            {barberNames.map((b) => (
               <option key={b} value={b}>
                 {b}
               </option>

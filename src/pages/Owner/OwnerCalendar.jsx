@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { fetchShopByOwnerId, fetchShopDetailedAppointments, updateAppointmentState } from "../../services/api";
 import {
   CalendarDays,
   User,
@@ -7,120 +9,69 @@ import {
   Check,
   XCircle,
   Loader,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import OwnerBottomNav from "../../components/ShopOwnerBottomNav";
 
-const mockAppointments = [
-  {
-    id: 1,
-    client: "Ahmed M.",
-    barber: "Ali",
-    service: "Skin Fade",
-    date: "2025-07-03",
-    time: "10:00",
-    status: "done",
-  },
-  {
-    id: 2,
-    client: "Sara B.",
-    barber: "Sami",
-    service: "Beard Trim",
-    date: "2025-07-03",
-    time: "11:30",
-    status: "pending",
-  },
-  {
-    id: 3,
-    client: "Omar Z.",
-    barber: "Hamza",
-    service: "Hair Color",
-    date: "2025-07-03",
-    time: "13:00",
-    status: "canceled",
-  },
-  {
-    id: 4,
-    client: "Linda F.",
-    barber: "Ali",
-    service: "Kids Cut",
-    date: "2025-07-04",
-    time: "09:00",
-    status: "pending",
-  },
-  {
-    id: 5,
-    client: "Rami T.",
-    barber: "Sami",
-    service: "Skin Fade",
-    date: "2025-07-04",
-    time: "10:30",
-    status: "done",
-  },
-  {
-    id: 6,
-    client: "Yasmine K.",
-    barber: "Hamza",
-    service: "Beard Trim",
-    date: "2025-07-04",
-    time: "12:00",
-    status: "done",
-  },
-  {
-    id: 7,
-    client: "Tariq A.",
-    barber: "Ali",
-    service: "Hair Color",
-    date: "2025-07-05",
-    time: "14:00",
-    status: "canceled",
-  },
-  {
-    id: 8,
-    client: "Fatma G.",
-    barber: "Sami",
-    service: "Kids Cut",
-    date: "2025-07-05",
-    time: "15:30",
-    status: "done",
-  },
-  {
-    id: 9,
-    client: "Khaled L.",
-    barber: "Hamza",
-    service: "Skin Fade",
-    date: "2025-07-05",
-    time: "17:00",
-    status: "pending",
-  },
-];
-
-const barbers = ["All", "Ali", "Sami", "Hamza"];
-
 export default function OwnerCalendar() {
-  const [selectedDate, setSelectedDate] = useState("2025-07-03");
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedBarber, setSelectedBarber] = useState("All");
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState([]);
 
+  const { user } = useAuth();
   useEffect(() => {
-    setLoading(true);
-    // Simulate loading
-    setTimeout(() => {
-      setAppointments(mockAppointments);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    async function loadAppointments() {
+      setLoading(true);
+      try {
+        const shop = await fetchShopByOwnerId(user.owner_id || user._id);
+        const data = await fetchShopDetailedAppointments(shop.shop_id);
+        setAppointments(data);
+      } catch {
+        setAppointments([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (user) loadAppointments();
+  }, [user]);
+
+  // Dynamically generate barber list from appointments, using barber_id and barber name
+  const { owner_id } = user || {};
+  const barberMap = new Map();
+  let meBarber = null;
+  appointments.forEach((appt) => {
+    if (appt.barber_id && appt.barber) {
+      if (appt.barber_id === owner_id) {
+        meBarber = { id: owner_id, name: "Me" };
+      } else {
+        barberMap.set(appt.barber_id, appt.barber);
+      }
+    }
+  });
+  const barberList = [
+    { id: "All", name: "All" },
+    ...(meBarber ? [meBarber] : []),
+    ...Array.from(barberMap.entries()).map(([id, name]) => ({ id, name })),
+  ];
 
   const filtered = appointments.filter((appt) => {
     const matchDate = appt.date === selectedDate;
     const matchStatus = statusFilter === "all" || appt.status === statusFilter;
-    const matchBarber = selectedBarber === "All" || appt.barber === selectedBarber;
+    const matchBarber = selectedBarber === "All" || appt.barber_id === selectedBarber;
     return matchDate && matchStatus && matchBarber;
   });
 
   const statusIcon = {
-    done: <Check className="text-green-500" />,
+    accepted: <Check className="text-green-500" />,
     pending: <Loader className="text-yellow-500 animate-spin" />,
     canceled: <XCircle className="text-red-500" />,
   };
@@ -149,7 +100,7 @@ export default function OwnerCalendar() {
         >
           <option value="all">All Statuses</option>
           <option value="pending">Pending</option>
-          <option value="done">Done</option>
+          <option value="accepted">Accepted</option>
           <option value="canceled">Canceled</option>
         </select>
 
@@ -158,9 +109,9 @@ export default function OwnerCalendar() {
           onChange={(e) => setSelectedBarber(e.target.value)}
           className="rounded-md px-3 py-1.5 border dark:bg-zinc-800 dark:border-zinc-600"
         >
-          {barbers.map((barber) => (
-            <option key={barber} value={barber}>
-              {barber}
+          {barberList.map((barber) => (
+            <option key={barber.id} value={barber.id}>
+              {barber.name}
             </option>
           ))}
         </select>
@@ -198,8 +149,35 @@ export default function OwnerCalendar() {
               </div>
               <div className="text-sm flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
                 <Clock className="w-4 h-4" />
-                Barber: {appt.barber}
+                Barber: {appt.barber_id === owner_id ? "Me" : appt.barber}
               </div>
+              {/* Show Accept/Cancel for pending appointments of Me */}
+              {appt.status === "pending" && appt.barber_id === owner_id && (
+                <div className="flex gap-2 mt-2">
+                  <button
+                    className="px-3 py-1 rounded bg-green-500 text-white text-sm flex items-center gap-1"
+                    onClick={async () => {
+                      try {
+                        await updateAppointmentState(appt.appointment_id, "accepted");
+                        setAppointments((prev) => prev.map(a => a.id === appt.id ? { ...a, status: "accepted" } : a));
+                      } catch {}
+                    }}
+                  >
+                    <ThumbsUp className="w-4 h-4" /> Accept
+                  </button>
+                  <button
+                    className="px-3 py-1 rounded bg-red-500 text-white text-sm flex items-center gap-1"
+                    onClick={async () => {
+                      try {
+                        await updateAppointmentState(appt.appointment_id, "canceled");
+                        setAppointments((prev) => prev.map(a => a.id === appt.id ? { ...a, status: "canceled" } : a));
+                      } catch {}
+                    }}
+                  >
+                    <ThumbsDown className="w-4 h-4" /> Cancel
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

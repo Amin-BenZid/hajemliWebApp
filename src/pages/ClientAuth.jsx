@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginAllRoles, registerClient } from "../services/api";
+import { loginAllRoles, registerClient, fetchShopByOwnerId } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
 export default function ClientAuthPage() {
@@ -49,7 +49,19 @@ export default function ClientAuthPage() {
       } else if (role === "worker") {
         navigate("/barber/dashboard");
       } else if (role === "owner") {
-        navigate("/owner/dashboard");
+        // Check if owner has a shop
+        const ownerId = user.owner_id;
+        if (ownerId) {
+          const shopData = await fetchShopByOwnerId(ownerId);
+          if (shopData.notFound) {
+            navigate("/owner/createshop");
+          } else {
+            navigate("/owner/shop");
+          }
+        } else {
+          // fallback if no owner id
+          navigate("/owner/createshop");
+        }
       }
     } catch (err) {
       setError(isSignUp ? "Registration failed. Please check your details." : "Invalid email or password.");

@@ -203,6 +203,8 @@ export default function BarberProfilePage() {
           <p className="text-sm flex items-center gap-1">
             <Phone size={14} /> {barber.phone}
           </p>
+          <p className="text-sm">achraf laajimi ING2 INFO TD2</p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">barber_id: {barber.barber_id || barber._id || barber.id}</p>
 
           <h2 className="text-lg font-semibold">Services</h2>
           <div className="space-y-2">
@@ -322,6 +324,8 @@ export default function BarberProfilePage() {
                   onChange={handleChange}
                   placeholder="Email"
                 />
+                <p className="text-sm">achraf laajimi ING2 INFO TD2</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">barber_id: {barber.barber_id || barber._id || barber.id}</p>
                 <textarea
                   name="bio"
                   value={barber.bio}
@@ -355,6 +359,8 @@ export default function BarberProfilePage() {
                 <p className="text-sm flex items-center gap-1">
                   <Phone size={14} /> {barber.phone}
                 </p>
+                <p className="text-sm">achraf laajimi ING2 INFO TD2</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">My code: {barber.barber_id || barber._id || barber.id}</p>
                 <p className="text-sm">{barber.bio}</p>
               </>
             )}

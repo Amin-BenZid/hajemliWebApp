@@ -1,32 +1,31 @@
-import React, { useState } from "react";
-import { Pencil, Phone, CalendarDays, User, Eye, EyeOff, Plus } from "lucide-react";
-import * as LucideIcons from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Pencil, Phone, CalendarDays, User, Eye, EyeOff, Plus, Upload } from "lucide-react";
 import OwnerBottomNav from "../../components/ShopOwnerBottomNav";
+import * as LucideIcons from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import api from "../../services/api";
 
 export default function OwnerProfilePage() {
-  const [barber, setBarber] = useState({
-    id: "b1",
-    name: "Youssef Amara",
-    phone: "+216 55 123 456",
-    bio: "Barber with 10+ years experience. Precision cuts, fades & beard styling.",
-    image: "https://randomuser.me/api/portraits/men/75.jpg",
-    services: [
-      { id: "s1", name: "Haircut", price: 30, duration: "30 mins", icon: "Scissors" },
-      { id: "s2", name: "Beard Trim", price: 20, duration: "15 mins", icon: "Beard" },
-      { id: "s3", name: "Facial", price: 25, duration: "20 mins", icon: "Smile" },
-    ],
-  });
+  const [owner, setOwner] = useState(null);
+  const { user, role } = useAuth();
 
   const [editMode, setEditMode] = useState(false);
   const [clientView, setClientView] = useState(false);
   const [showReportBox, setShowReportBox] = useState(false);
   const [showAddService, setShowAddService] = useState(false);
-  const [newService, setNewService] = useState({ name: "", price: "", duration: "" });
+  const [newService, setNewService] = useState({ name: "", price: "", time: "", bio: "", image: null });
   const [selectedReview, setSelectedReview] = useState(null);
   const [reportReason, setReportReason] = useState("");
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [editService, setEditService] = useState(null);
   const [isAvailable, setIsAvailable] = useState(true);
+  const [services, setServices] = useState([]);
+  const [newServiceImage, setNewServiceImage] = useState(null);
+  const [shop, setShop] = useState(null);
+  const [appointments, setAppointments] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [reviewUserNames, setReviewUserNames] = useState({});
+  const [editImage, setEditImage] = useState(null);
 
   const availableIcons = [
     { name: "Scissors", label: "Haircut" },
@@ -45,44 +44,139 @@ export default function OwnerProfilePage() {
     { name: "Gem", label: "Nail Art" },
   ];
 
-  const [appointments] = useState([
-    {
-      id: "a1",
-      clientName: "Amine BZ",
-      date: "2025-07-01",
-      time: "14:00",
-      services: ["Haircut", "Beard Trim"],
-    },
-    {
-      id: "a2",
-      clientName: "Yassine M",
-      date: "2025-07-02",
-      time: "10:30",
-      services: ["Facial"],
-    },
-  ]);
+  useEffect(() => {
+    async function getOwner() {
+      if (role === "owner" && user && (user.owner_id || user._id || user.id)) {
+        const ownerId = user.owner_id || user._id || user.id;
+        try {
+          // Fetch owner data
+          const ownerRes = await api.get(`/barbers/${ownerId}`);
+          // Always map _id to owner_id for consistency
+          const data = ownerRes.data;
+          setOwner({ ...data, owner_id: data.barber_id || data.owner_id || data._id || data.id });
+          setIsAvailable(!!ownerRes.data.Availability);
+          // Fetch services for this owner
+          const res = await api.get(`/barbers/${ownerId}/services`);
+          setServices(res.data);
+          // Fetch shop details
+          const shopRes = await api.get(`/barbers/${ownerId}/shop`);
+          setShop(shopRes.data);
+          // Fetch upcoming appointments
+          const apptRes = await api.get(`/appointments/pending/${ownerId}`);
+          setAppointments(apptRes.data);
+          // Fetch reviews
+          const reviewsRes = await api.get(`/reviews/barber/${ownerId}`);
+          setReviews(reviewsRes.data);
+          // Fetch user names for reviews
+          const userIds = Array.from(new Set(reviewsRes.data.map(r => r.user_id)));
+          const userNamesObj = {};
+          for (const uid of userIds) {
+            try {
+              const userRes = await api.get(`/clients/${uid}`);
+              userNamesObj[uid] = userRes.data.first_name ? `${userRes.data.first_name} ${userRes.data.last_name || ''}`.trim() : userRes.data.name || uid;
+            } catch {
+              userNamesObj[uid] = uid;
+            }
+          }
+          setReviewUserNames(userNamesObj);
+        } catch (err) {
+          // Optionally handle error
+        }
+      }
+    }
+    getOwner();
+  }, [user, role]);
+
+  if (!owner) {
+    return <div className="min-h-screen flex items-center justify-center bg-white dark:bg-zinc-900 text-black dark:text-white">Loading...</div>;
+  }
 
   const handleChange = (e) => {
-    setBarber({ ...barber, [e.target.name]: e.target.value });
+    setOwner({ ...owner, [e.target.name]: e.target.value });
   };
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
       const imgURL = URL.createObjectURL(file);
-      setBarber({ ...barber, image: imgURL });
+      setOwner({ ...owner, image: imgURL });
     }
   };
 
-  const handleAddService = () => {
-    if (newService.name && newService.price && newService.duration) {
-      const newId = "s" + (barber.services.length + 1);
-      setBarber({
-        ...barber,
-        services: [...barber.services, { ...newService, id: newId }],
-      });
-      setNewService({ name: "", price: "", duration: "" });
+  const handleAddService = async () => {
+    if (!newService.name || !newService.price || !newService.time) return;
+    const ownerId = owner.owner_id;
+    const payload = {
+      name: newService.name,
+      price: newService.price,
+      time: newService.time,
+      bio: newService.bio || ""
+    };
+    try {
+      // Step 1: Add service (JSON)
+      const res = await api.post(`/barbers/${ownerId}/addservices`, payload);
+      const newServiceObj = res.data;
+      // Step 2: If image selected, upload it
+      if (newServiceImage && newServiceObj && newServiceObj.service_id) {
+        const imgForm = new FormData();
+        imgForm.append('file', newServiceImage);
+        imgForm.append('service_id', newServiceObj.service_id);
+        await api.post('/services/upload', imgForm, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      }
+      // Refresh services
+      const updated = await api.get(`/barbers/${ownerId}/services`);
+      setServices(updated.data);
       setShowAddService(false);
+      setNewService({ name: "", price: "", time: "", bio: "", image: null });
+      setNewServiceImage(null);
+    } catch (err) {
+      // Optionally show error
+    }
+  };
+
+  const handleToggleAvailability = async () => {
+    if (!owner) return;
+    const ownerId = owner.owner_id;
+    try {
+      await api.patch(`/barbers/${ownerId}/toggle-availability`);
+      // Refetch owner data to get the new Availability state
+      const updated = await api.get(`/barbers/${ownerId}`);
+      setIsAvailable(!!updated.data.Availability);
+      setOwner(updated.data);
+    } catch (err) {
+      // Optionally show error
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!owner) return;
+    const ownerId = owner.owner_id;
+    try {
+      // 1. If a new image is selected, upload it
+      if (editImage) {
+        const imgForm = new FormData();
+        imgForm.append('file', editImage);
+        imgForm.append('barber_id', ownerId);
+        await api.post('/barbers/upload', imgForm, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      }
+      // 2. Update owner info
+      await api.put(`/barbers/${ownerId}`, {
+        name: owner.name,
+        phone: owner.phone,
+        mail: owner.mail,
+        bio: owner.bio,
+      });
+      // 3. Refresh owner data
+      const updated = await api.get(`/barbers/${ownerId}`);
+      setOwner(updated.data);
+      setEditMode(false);
+      setEditImage(null);
+    } catch (err) {
+      // Optionally show error
     }
   };
 
@@ -91,86 +185,86 @@ export default function OwnerProfilePage() {
       <div className="min-h-screen bg-white dark:bg-zinc-900 text-black dark:text-white p-6 transition-colors">
         <div className="max-w-xl mx-auto space-y-6">
           <div className="flex justify-start items-center">
-            <h1 className="text-2xl font-bold">{barber.name}</h1>
+            <h1 className="text-2xl font-bold">{owner.name}</h1>
             <button
               onClick={() => setClientView(false)}
               className="flex items-center gap-1 px-4 py-1 rounded-full border text-sm dark:border-zinc-600"
             >
               <EyeOff size={16} />
-              Barber View
+              Owner View
             </button>
           </div>
 
           <img
-            src={barber.image}
-            alt={barber.name}
+            src={owner.profile_image}
+            alt={owner.name}
             className="w-24 h-24 rounded-full border dark:border-zinc-600"
           />
 
-          <p className="text-sm">{barber.bio}</p>
+          <p className="text-sm">{owner.bio}</p>
           <p className="text-sm flex items-center gap-1">
-            <Phone size={14} /> {barber.phone}
+            <Phone size={14} /> {owner.phone}
           </p>
 
           <h2 className="text-lg font-semibold">Services</h2>
-          <ul className="space-y-2">
-            {barber.services.map((s) => (
+          <div className="space-y-2">
+            {services.map((s) => (
               <div
-                key={s.id}
+                key={s._id}
                 className="border dark:border-zinc-700 p-3 rounded-xl flex justify-between items-center"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    {s.icon && LucideIcons[s.icon] && (
-                      <div className="text-zinc-500 dark:text-zinc-300">
-                        {React.createElement(LucideIcons[s.icon], {
-                          size: 18,
-                        })}
-                      </div>
-                    )}
+                  <img
+                    src={s.image}
+                    alt={s.name}
+                    className="w-16 h-16 rounded-lg object-cover border dark:border-zinc-600"
+                  />
+                  <div>
                     <p className="font-medium">{s.name}</p>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      {s.price} DT – {s.time} mins
+                    </p>
+                    <p className="text-sm text-zinc-400 dark:text-zinc-300 mt-1">{s.bio}</p>
                   </div>
-
-                  <p className="font-medium">{s.name}</p>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    {s.price} DT – {s.duration}
-                  </p>
                 </div>
               </div>
             ))}
-          </ul>
+          </div>
 
           {/* Reviews Section */}
           <div className="mt-10">
             <h2 className="text-lg font-semibold mb-4">Client Reviews</h2>
             <div className="space-y-4">
-              {[
-                {
-                  id: "r1",
-                  user: "Ali B.",
-                  rating: 5,
-                  comment: "Amazing haircut and friendly service!",
-                },
-                {
-                  id: "r2",
-                  user: "Lina Z.",
-                  rating: 4,
-                  comment: "Great experience but a bit of delay.",
-                },
-              ].map((r) => (
-                <div
-                  key={r.id}
-                  className="bg-white dark:bg-zinc-800 p-4 rounded-xl border dark:border-zinc-700"
-                >
-                  <p className="font-semibold">{r.user}</p>
-                  <p className="text-yellow-500 text-sm mb-1">
-                    {Array.from({ length: r.rating })
-                      .map((_, i) => "★")
-                      .join("")}
-                  </p>
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300">{r.comment}</p>
-                </div>
-              ))}
+              {reviews.length === 0 ? (
+                <div className="text-sm text-zinc-500 dark:text-zinc-400">No reviews yet.</div>
+              ) : (
+                reviews.map((r) => (
+                  <div
+                    key={r._id}
+                    className="bg-white dark:bg-zinc-800 p-4 rounded-xl border dark:border-zinc-700"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-semibold">{reviewUserNames[r.user_id] || r.user_id}</p>
+                        <p className="text-yellow-500 text-sm mb-1">
+                          {Array.from({ length: r.nb_stars }).map(() => "★").join("")}
+                        </p>
+                        <p className="text-sm text-zinc-700 dark:text-zinc-300">{r.comment}</p>
+                        <p className="text-xs text-zinc-400 mt-1">{r.date_of_send ? new Date(r.date_of_send).toLocaleDateString() : ""}</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setShowReportBox(true);
+                          setSelectedReview(r);
+                        }}
+                        className="text-sm text-red-500 hover:underline"
+                      >
+                        Report
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -197,16 +291,11 @@ export default function OwnerProfilePage() {
         <div className="flex items-center gap-6">
           <div className="relative">
             <img
-              src={barber.image}
-              alt={barber.name}
+              src={owner.profile_image}
+              alt={owner.name}
               className="w-24 h-24 rounded-full border dark:border-zinc-600"
             />
-            {editMode && (
-              <label className="absolute bottom-0 right-0 bg-black p-1 rounded-full cursor-pointer">
-                <input type="file" className="hidden" onChange={handleImageUpload} />
-                <Pencil size={14} className="text-white" />
-              </label>
-            )}
+            {/* No pencil icon upload, only use the button below for upload */}
           </div>
           <div className="flex-1 space-y-2">
             {editMode ? (
@@ -214,40 +303,67 @@ export default function OwnerProfilePage() {
                 <input
                   className="w-full px-3 py-2 rounded-xl dark:bg-zinc-700"
                   name="name"
-                  value={barber.name}
+                  value={owner.name}
                   onChange={handleChange}
                 />
                 <input
                   className="w-full px-3 py-2 rounded-xl dark:bg-zinc-700"
                   name="phone"
-                  value={barber.phone}
+                  value={owner.phone}
                   onChange={handleChange}
+                />
+                <input
+                  className="w-full px-3 py-2 rounded-xl dark:bg-zinc-700"
+                  name="mail"
+                  value={owner.mail || ''}
+                  onChange={handleChange}
+                  placeholder="Email"
                 />
                 <textarea
                   name="bio"
-                  value={barber.bio}
+                  value={owner.bio}
                   onChange={handleChange}
                   className="w-full px-3 py-2 rounded-xl dark:bg-zinc-700"
                 />
+                <div className="mt-2">
+                  <label htmlFor="edit-owner-image" className="flex items-center gap-2 cursor-pointer bg-black text-white dark:bg-white dark:text-black px-4 py-2 rounded-xl font-semibold w-fit hover:opacity-90 transition">
+                    <Upload size={18} />
+                    {editImage ? editImage.name : "Change profile picture"}
+                    <input
+                      id="edit-owner-image"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={e => setEditImage(e.target.files[0])}
+                    />
+                  </label>
+                  {editImage && (
+                    <img
+                      src={URL.createObjectURL(editImage)}
+                      alt="Preview"
+                      className="w-24 h-24 object-cover rounded-lg border mt-2"
+                    />
+                  )}
+                </div>
               </>
             ) : (
               <>
-                <h1 className="text-xl font-bold">{barber.name}</h1>
+                <h1 className="text-xl font-bold">{owner.name}</h1>
                 <p className="text-sm flex items-center gap-1">
-                  <Phone size={14} /> {barber.phone}
+                  <Phone size={14} /> {owner.phone}
                 </p>
-                <p className="text-sm">{barber.bio}</p>
+                <p className="text-sm">{owner.bio}</p>
               </>
             )}
             <div className="flex gap-4">
               <button
-                onClick={() => setEditMode(!editMode)}
+                onClick={editMode ? handleSaveProfile : () => setEditMode(true)}
                 className="px-4 py-1 bg-black dark:bg-white text-white dark:text-black rounded-xl text-sm"
               >
                 {editMode ? "Save" : "Edit Profile"}
               </button>
               <a
-                href="/barber/settings"
+                href="/owner/settings"
                 className="px-4 py-1 bg-black dark:bg-white text-white dark:text-black rounded-xl text-sm"
               >
                 Settings
@@ -267,7 +383,7 @@ export default function OwnerProfilePage() {
               </p>
             </div>
             <button
-              onClick={() => setIsAvailable((prev) => !prev)}
+              onClick={handleToggleAvailability}
               className={`px-4 py-2 rounded-xl text-sm font-semibold ${
                 isAvailable ? "bg-red-600 text-white" : "bg-green-600 text-white"
               }`}
@@ -281,43 +397,26 @@ export default function OwnerProfilePage() {
         <div>
           <h2 className="text-lg font-semibold mb-2">Services</h2>
           <div className="space-y-2">
-            {barber.services.map((s) => (
+            {services.map((s) => (
               <div
-                key={s.id}
+                key={s._id}
                 className="border dark:border-zinc-700 p-3 rounded-xl flex justify-between items-center"
               >
                 <div className="flex items-center gap-3">
-                  {LucideIcons[s.icon] &&
-                    React.createElement(LucideIcons[s.icon], {
-                      className: "w-6 h-6 text-zinc-500 dark:text-zinc-300",
-                    })}
-
-                  <p className="font-medium">{s.name}</p>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    {s.price} DT – {s.duration}
-                  </p>
+                  <img
+                    src={s.image}
+                    alt={s.name}
+                    className="w-16 h-16 rounded-lg object-cover border dark:border-zinc-600"
+                  />
+                  <div>
+                    <p className="font-medium">{s.name}</p>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      {s.price} DT – {s.time} mins
+                    </p>
+                    <p className="text-sm text-zinc-400 dark:text-zinc-300 mt-1">{s.bio}</p>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setEditService(s);
-                    }}
-                    className="text-sm text-blue-600 hover:underline"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    onClick={() => {
-                      setBarber({
-                        ...barber,
-                        services: barber.services.filter((srv) => srv.id !== s.id),
-                      });
-                    }}
-                    className="text-sm text-red-600 hover:underline"
-                  >
-                    🗑️
-                  </button>
-                </div>
+                {/* Optionally, add edit/delete buttons here if needed */}
               </div>
             ))}
             <button
@@ -331,29 +430,31 @@ export default function OwnerProfilePage() {
         <div className="mt-10">
           <h2 className="text-lg font-semibold mb-2">Current Shop</h2>
           <div className="border dark:border-zinc-700 rounded-xl p-4 bg-white dark:bg-zinc-800 space-y-3">
-            <a
-              href={`/shop/TUNX45`} // replace 123 with real shop id when integrated
-              className="flex items-center gap-4 hover:opacity-90 transition"
-            >
-              <img
-                src="https://images.unsplash.com/photo-1604004214946-48f3f8bfbf19" // sample image
-                alt="Shop"
-                className="w-16 h-16 rounded-lg object-cover border dark:border-zinc-600"
-              />
-              <div>
-                <p className="font-medium text-base">Luxury Barber Shop</p>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Sousse, Tunisia
-                </p>
-              </div>
-            </a>
-
-            <button
-              onClick={() => setShowLeaveConfirm(true)}
-              className="w-full mt-2 text-sm bg-red-600 text-white px-4 py-2 rounded-xl"
-            >
-              Leave Shop
-            </button>
+            {shop && shop.message === "This owner is not a part of any shop." ? (
+              <div className="text-sm text-zinc-500 dark:text-zinc-400 text-center">{shop.message}</div>
+            ) : shop ? (
+              <>
+                <a
+                  href="#"
+                  className="flex items-center gap-4 hover:opacity-90 transition"
+                >
+                  <img
+                    src={shop.profilePicture}
+                    alt={shop.shop_name}
+                    className="w-16 h-16 rounded-lg object-cover border dark:border-zinc-600"
+                  />
+                  <div>
+                    <p className="font-medium text-base">{shop.shop_name}</p>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      {shop.localisation}
+                    </p>
+                  </div>
+                </a>
+               
+              </>
+            ) : (
+              <div className="text-sm text-zinc-500 dark:text-zinc-400">No shop found.</div>
+            )}
           </div>
         </div>
 
@@ -363,7 +464,7 @@ export default function OwnerProfilePage() {
             <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl shadow-xl w-full max-w-sm space-y-4">
               <h3 className="text-lg font-semibold">Confirm Leaving Shop</h3>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Are you sure you want to leave <strong>Luxury Barber Shop</strong>?
+                Are you sure you want to leave <strong>{shop?.shop_name || "this shop"}</strong>?
               </p>
               <div className="flex justify-end gap-2">
                 <button
@@ -373,10 +474,17 @@ export default function OwnerProfilePage() {
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setShowLeaveConfirm(false);
-                    console.log("Barber left the shop");
-                    // TODO: handle leave logic
+                    const ownerId = owner.owner_id;
+                    try {
+                      await api.patch(`/barbers/${ownerId}/leave-shop`);
+                      // Refresh shop info
+                      const shopRes = await api.get(`/barbers/${ownerId}/shop`);
+                      setShop(shopRes.data);
+                    } catch (err) {
+                      // Optionally show error
+                    }
                   }}
                   className="bg-red-600 text-white px-4 py-2 rounded-xl text-sm"
                 >
@@ -390,21 +498,31 @@ export default function OwnerProfilePage() {
         {/* Appointments */}
         <div>
           <h2 className="text-lg font-semibold mb-2">Upcoming Appointments</h2>
-          {appointments.map((a) => (
-            <div
-              key={a.id}
-              className="bg-white dark:bg-zinc-800 border dark:border-zinc-700 p-4 rounded-xl mb-2"
-            >
-              <p className="font-medium flex items-center gap-1">
-                <User size={14} /> {a.clientName}
-              </p>
-              <p className="text-sm text-zinc-500 dark:text-zinc-300">
-                <CalendarDays size={14} className="inline-block mr-1" />
-                {a.date} – {a.time}
-              </p>
-              <p className="text-sm">Services: {a.services.join(", ")}</p>
-            </div>
-          ))}
+          {(() => {
+            const now = new Date();
+            const futureAppointments = appointments.filter(a => {
+              if (!a.time_and_date) return false;
+              return new Date(a.time_and_date) > now;
+            });
+            if (futureAppointments.length === 0) {
+              return <div className="text-sm text-zinc-500 dark:text-zinc-400">No upcoming appointments.</div>;
+            }
+            return futureAppointments.map((a) => (
+              <div
+                key={a.appointment_id}
+                className="bg-white dark:bg-zinc-800 border dark:border-zinc-700 p-4 rounded-xl mb-2"
+              >
+                <p className="font-medium flex items-center gap-1">
+                  <User size={14} /> {a.client_name}
+                </p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-300">
+                  <CalendarDays size={14} className="inline-block mr-1" />
+                  {a.time_and_date ? new Date(a.time_and_date).toLocaleDateString() : ""} – {a.time_and_date ? new Date(a.time_and_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                </p>
+                <p className="text-sm">Services: {Array.isArray(a.services) ? a.services.join(", ") : ""}</p>
+              </div>
+            ));
+          })()}
         </div>
       </div>
 
@@ -413,41 +531,54 @@ export default function OwnerProfilePage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl shadow-xl w-full max-w-sm space-y-4">
             <h3 className="text-lg font-semibold">Add Service</h3>
-            <select
-              value={newService.icon}
-              onChange={(e) => setNewService({ ...newService, icon: e.target.value })}
-              className="w-full px-3 py-2 rounded-xl dark:bg-zinc-700"
-            >
-              <option value="">Select Icon</option>
-              {availableIcons.map((item) => {
-                return (
-                  <option key={item.name} value={item.name}>
-                    {item.label}
-                  </option>
-                );
-              })}
-            </select>
+            <div className="mb-2">
+              <label htmlFor="service-image-upload" className="flex items-center justify-center gap-2 cursor-pointer bg-black text-white dark:bg-white dark:text-black px-4 py-2 rounded-xl font-semibold w-full hover:opacity-90 transition">
+                <Upload size={18} />
+                {newServiceImage ? newServiceImage.name : "Choisir un fichier"}
+                <input
+                  id="service-image-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => setNewServiceImage(e.target.files[0])}
+                />
+              </label>
+              {newServiceImage && (
+                <img
+                  src={URL.createObjectURL(newServiceImage)}
+                  alt="Preview"
+                  className="w-24 h-24 object-cover rounded-lg border mt-2 mx-auto"
+                />
+              )}
+            </div>
 
             <input
               type="text"
               placeholder="Name"
               className="w-full px-3 py-2 rounded-xl dark:bg-zinc-700"
-              value={newService.name}
-              onChange={(e) => setNewService({ ...newService, name: e.target.value })}
+              value={newService.name || ""}
+              onChange={e => setNewService({ ...newService, name: e.target.value })}
             />
             <input
               type="number"
               placeholder="Price (DT)"
               className="w-full px-3 py-2 rounded-xl dark:bg-zinc-700"
-              value={newService.price}
-              onChange={(e) => setNewService({ ...newService, price: e.target.value })}
+              value={newService.price || ""}
+              onChange={e => setNewService({ ...newService, price: e.target.value })}
             />
             <input
               type="text"
-              placeholder="Duration (e.g. 20 mins)"
+              placeholder="Time (mins)"
               className="w-full px-3 py-2 rounded-xl dark:bg-zinc-700"
-              value={newService.duration}
-              onChange={(e) => setNewService({ ...newService, duration: e.target.value })}
+              value={newService.time || ""}
+              onChange={e => setNewService({ ...newService, time: e.target.value })}
+            />
+            <input
+              type="text"
+              placeholder="Bio"
+              className="w-full px-3 py-2 rounded-xl dark:bg-zinc-700"
+              value={newService.bio || ""}
+              onChange={e => setNewService({ ...newService, bio: e.target.value })}
             />
             <div className="flex justify-end gap-2">
               <button
@@ -470,46 +601,36 @@ export default function OwnerProfilePage() {
       <div className="max-w-2xl mx-auto mt-10">
         <h2 className="text-lg font-semibold mb-4">Client Reviews</h2>
         <div className="space-y-4">
-          {[
-            {
-              id: "r1",
-              user: "Ali B.",
-              rating: 5,
-              comment: "Amazing haircut and friendly service!",
-            },
-            {
-              id: "r2",
-              user: "Lina Z.",
-              rating: 4,
-              comment: "Great experience but a bit of delay.",
-            },
-          ].map((r) => (
-            <div
-              key={r.id}
-              className="bg-white dark:bg-zinc-800 p-4 rounded-xl border dark:border-zinc-700"
-            >
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="font-semibold">{r.user}</p>
-                  <p className="text-yellow-500 text-sm mb-1">
-                    {Array.from({ length: r.rating })
-                      .map((_, i) => "★")
-                      .join("")}
-                  </p>
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300">{r.comment}</p>
+          {reviews.length === 0 ? (
+            <div className="text-sm text-zinc-500 dark:text-zinc-400">No reviews yet.</div>
+          ) : (
+            reviews.map((r) => (
+              <div
+                key={r._id}
+                className="bg-white dark:bg-zinc-800 p-4 rounded-xl border dark:border-zinc-700"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-semibold">{reviewUserNames[r.user_id] || r.user_id}</p>
+                    <p className="text-yellow-500 text-sm mb-1">
+                      {Array.from({ length: r.nb_stars }).map(() => "★").join("")}
+                    </p>
+                    <p className="text-sm text-zinc-700 dark:text-zinc-300">{r.comment}</p>
+                    <p className="text-xs text-zinc-400 mt-1">{r.date_of_send ? new Date(r.date_of_send).toLocaleDateString() : ""}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowReportBox(true);
+                      setSelectedReview(r);
+                    }}
+                    className="text-sm text-red-500 hover:underline"
+                  >
+                    Report
+                  </button>
                 </div>
-                <button
-                  onClick={() => {
-                    setShowReportBox(true);
-                    setSelectedReview(r);
-                  }}
-                  className="text-sm text-red-500 hover:underline"
-                >
-                  Report
-                </button>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
       {/* Edit Service Modal */}
@@ -562,9 +683,9 @@ export default function OwnerProfilePage() {
               </button>
               <button
                 onClick={() => {
-                  setBarber({
-                    ...barber,
-                    services: barber.services.map((s) =>
+                  setOwner({
+                    ...owner,
+                    services: owner.services.map((s) =>
                       s.id === editService.id ? editService : s
                     ),
                   });

@@ -150,9 +150,15 @@ export async function fetchShopDetailsByBarberId(barberId) {
   return response.data;
 }
 
-// Fetch total monthly income for a barber
+// Fetch yearly income for a barber
+export async function fetchBarberYearlyIncome(barberId) {
+  const response = await api.get(`/appointments/barber/${barberId}/income/year`);
+  return response.data;
+}
+
+// Fetch monthly income for a barber
 export async function fetchBarberMonthlyIncome(barberId) {
-  const response = await api.get(`/appointments/barber/${barberId}/total-price`);
+  const response = await api.get(`/appointments/barber/${barberId}/income/month`);
   return response.data;
 }
 
@@ -195,5 +201,164 @@ export async function fetchBarberMostPopularDay(barberId) {
 // Fetch most reviewed (used) service for a barber
 export async function fetchBarberMostUsedService(barberId) {
   const response = await api.get(`/appointments/barber/${barberId}/most-used-service`);
+  return response.data;
+}
+
+// Fetch shop by owner ID
+export async function fetchShopByOwnerId(ownerId) {
+  try {
+    const response = await api.get(`/shops/owner/${ownerId}`);
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.status === 404) {
+      return { notFound: true, ...error.response.data };
+    }
+    throw error;
+  }
+}
+
+// Create a new shop
+export async function createShop(shopData) {
+  const response = await api.post('/shops', shopData);
+  return response.data;
+}
+
+// Upload shop profile picture
+export async function uploadShopProfilePicture(shopId, file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('shop_id', shopId);
+  const response = await api.post('/shops/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+}
+
+// Upload shop cover picture
+export async function uploadShopCoverPicture(shopId, file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('shop_id', shopId);
+  const response = await api.post('/shops/uploadcover', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+}
+
+// Create a new shop with images (profile and cover)
+export async function createShopWithImages(shopData, profileFile, coverFile) {
+  const formData = new FormData();
+  Object.entries(shopData).forEach(([key, value]) => {
+    formData.append(key, value);
+  });
+  if (profileFile) formData.append('images', profileFile);
+  if (coverFile) formData.append('images', coverFile);
+  const response = await api.post('/shops/create-with-images', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+}
+
+// Update shop details
+export async function updateShop(shopId, shopData) {
+  const response = await api.put(`/shops/${shopId}`, shopData);
+  return response.data;
+}
+
+// Fetch reviews for a shop by shop_id
+export async function fetchShopReviews(shopId) {
+  const response = await api.get(`/reviews/shop/${shopId}`);
+  return response.data;
+}
+
+// Fetch client by user_id
+export async function fetchClientByUserId(userId) {
+  const response = await api.get(`/clients/${userId}`);
+  return response.data;
+}
+
+// Fetch barbers summary for a shop by shopId
+export async function fetchBarbersSummaryByShopId(shopId) {
+  const response = await api.get(`/shops/${shopId}/barbers-summary`);
+  return response.data;
+}
+
+// Add a barber to a shop by barberId
+export async function addBarberToShop(shopId, barberId) {
+  const response = await api.post(`/shops/${shopId}/add-barber/${barberId}`);
+  return response.data;
+}
+
+// Remove a barber from a shop by barberId
+export async function removeBarberFromShop(shopId, barberId) {
+  const response = await api.delete(`/shops/${shopId}/remove-barber/${barberId}`);
+  return response.data;
+}
+
+// Fetch shop statistics by shopId
+export async function fetchShopStatistics(shopId) {
+  const response = await api.get(`/shops/${shopId}/statistics`);
+  return response.data;
+}
+
+// Fetch barber performance stats for a shop
+export async function fetchBarberStatsByShopId(shopId) {
+  const response = await api.get(`/shops/${shopId}/barber-stats`);
+  return response.data;
+}
+
+// Fetch top services for a shop
+export async function fetchTopServicesByShopId(shopId) {
+  const response = await api.get(`/shops/${shopId}/top-services`);
+  return response.data;
+}
+
+// Fetch income trend for a shop for a given year and month
+export async function fetchShopIncomeTrend(shopId, year, month) {
+  const response = await api.get(`/shops/${shopId}/income-trend`, {
+    params: { year, month }
+  });
+  return response.data;
+}
+
+// Fetch satisfaction data for a shop
+export async function fetchShopSatisfaction(shopId) {
+  const response = await api.get(`/reviews/shop/${shopId}/satisfaction`);
+  return response.data;
+}
+
+// Fetch income stats for a shop (week, month, year)
+export async function fetchShopIncomeStats(shopId) {
+  const response = await api.get(`/shops/${shopId}/income-stats`);
+  return response.data;
+}
+
+// Fetch weekly appointments status for a shop
+export async function fetchShopWeeklyAppointmentsStatus(shopId) {
+  const response = await api.get(`/shops/${shopId}/weekly-appointments-status`);
+  return response.data;
+}
+
+// Fetch star counts (satisfaction) for a shop
+export async function fetchShopStarCounts(shopId) {
+  const response = await api.get(`/reviews/shop/${shopId}/star-counts`);
+  return response.data;
+}
+
+// Fetch barber productivity (appointment counts) for a shop
+export async function fetchShopBarberCounts(shopId) {
+  const response = await api.get(`/appointments/shop/${shopId}/barber-counts`);
+  return response.data;
+}
+
+// Fetch monthly barber stats for a shop
+export async function fetchShopMonthlyBarberStats(shopId) {
+  const response = await api.get(`/appointments/shop/${shopId}/monthly-barber-stats`);
+  return response.data;
+}
+
+// Fetch detailed appointments for a shop
+export async function fetchShopDetailedAppointments(shopId) {
+  const response = await api.get(`/appointments/shop/${shopId}/detailed-list`);
   return response.data;
 }
